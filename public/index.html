@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dinheiro & Futuro — Gestor Financeiro Inteligente</title>
+    <!-- Google Fonts: Outfit (headings) & Inter (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i data-lucide="trending-up"></i>
+                </div>
+                <h2>Dinheiro <span>& Futuro</span></h2>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-tab="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#transactions" class="nav-item" data-tab="transactions">
+                    <i data-lucide="arrow-left-right"></i>
+                    <span>Transações</span>
+                </a>
+                <a href="#forecast" class="nav-item" data-tab="forecast">
+                    <i data-lucide="line-chart"></i>
+                    <span>Previsões</span>
+                </a>
+                <a href="#settings" class="nav-item" data-tab="settings">
+                    <i data-lucide="settings"></i>
+                    <span>Configurações</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="connection-status-card" id="status-card">
+                    <div class="status-indicator-dot demo-mode" id="status-dot"></div>
+                    <div class="status-text-container">
+                        <span class="status-label">Status da Conexão</span>
+                        <span class="status-value" id="status-text">Modo Simulação</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-welcome">
+                    <h1 id="welcome-title">Olá!</h1>
+                    <p class="subtitle">Bem-vindo ao seu painel financeiro.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" id="btn-open-modal">
+                        <i data-lucide="plus"></i>
+                        <span>Nova Transação</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard Tab -->
+            <section id="dashboard" class="tab-content active">
+                <!-- Summary Cards Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-card income">
+                        <div class="metric-header">
+                            <span>Receitas (Mês Atual)</span>
+                            <div class="metric-icon">
+                                <i data-lucide="arrow-down-left"></i>
+                            </div>
+                        </div>
+                        <div class="metric-value" id="metric-income">R$ 0,00</div>
+                        <div class="metric-footer">
+                            <span class="trend positive" id="income-trend"><i data-lucide="trending-up"></i> +0%</span>
+                            <span class="trend-label"> vs mês anterior</span>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card expense">
+                        <div class="metric-header">
+                            <span>Despesas (Mês Atual)</span>
+                            <div class="metric-icon">
+                                <i data-lucide="arrow-up-right"></i>
+                            </div>
+                        </div>
+                        <div class="metric-value" id="metric-expense">R$ 0,00</div>
+                        <div class="metric-footer">
+                            <span class="trend negative" id="expense-trend"><i data-lucide="trending-down"></i> +0%</span>
+                            <span class="trend-label"> vs mês anterior</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card balance">
+                        <div class="metric-header">
+                            <span>Saldo Atual</span>
+                            <div class="metric-icon">
+                                <i data-lucide="wallet"></i>
+                            </div>
+                        </div>
+                        <div class="metric-value" id="metric-balance">R$ 0,00</div>
+                        <div class="metric-footer">
+                            <span class="trend-label" id="balance-subtext">Disponível em conta</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card forecast-metric">
+                        <div class="metric-header">
+                            <span>Saldo Projetado (12 meses)</span>
+                            <div class="metric-icon">
+                                <i data-lucide="calendar"></i>
+                            </div>
+                        </div>
+                        <div class="metric-value" id="metric-forecast">R$ 0,00</div>
+                        <div class="metric-footer">
+                            <span class="trend positive" id="forecast-trend"><i data-lucide="sparkles"></i> Estimado</span>
+                            <span class="trend-label"> ao fim do período</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-grid">
+                    <div class="chart-card main-chart-card">
+                        <div class="chart-header">
+                            <h3>Evolução e Previsão de Saldo</h3>
+                            <div class="chart-legend">
+                                <span class="legend-item"><span class="legend-dot history"></span> Histórico</span>
+                                <span class="legend-item"><span class="legend-dot projection"></span> Projeção</span>
+                            </div>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="balanceChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card donut-chart-card">
+                        <div class="chart-header">
+                            <h3>Gastos por Categoria</h3>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Transactions -->
+                <div class="recent-transactions-card">
+                    <div class="card-header">
+                        <h3>Transações Recentes</h3>
+                        <button class="btn btn-text" id="btn-see-all-transactions">Ver todas <i data-lucide="chevron-right"></i></button>
+                    </div>
+                    <div class="table-container">
+                        <table class="transaction-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Descrição</th>
+                                    <th>Categoria</th>
+                                    <th>Recorrência</th>
+                                    <th>Valor</th>
+                                    <th style="text-align: center; width: 100px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-transactions-list">
+                                <!-- Dinamicamente preenchido -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transactions Tab -->
+            <section id="transactions" class="tab-content">
+                <div class="section-card">
+                    <div class="card-header border-bottom">
+                        <h3>Histórico de Transações</h3>
+                    </div>
+                    
+                    <!-- Filters Toolbar -->
+                    <div class="filters-toolbar">
+                        <div class="search-box">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="filter-search" placeholder="Buscar por descrição...">
+                        </div>
+                        <div class="filter-group">
+                            <select id="filter-month">
+                                <option value="all">Todos os Meses</option>
+                                <!-- Dinamico -->
+                            </select>
+                            <select id="filter-category">
+                                <option value="all">Todas Categorias</option>
+                                <!-- Dinamico -->
+                            </select>
+                            <select id="filter-type">
+                                <option value="all">Todos os Tipos</option>
+                                <option value="Entrada">Entradas</option>
+                                <option value="Saída">Saídas</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-secondary" id="btn-clear-filters">
+                            <i data-lucide="filter-x"></i>
+                            <span>Limpar</span>
+                        </button>
+                    </div>
+
+                    <!-- Transactions Table -->
+                    <div class="table-container large-table">
+                        <table class="transaction-table" id="all-transactions-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Descrição</th>
+                                    <th>Categoria</th>
+                                    <th>Recorrência</th>
+                                    <th>Tipo</th>
+                                    <th>Valor</th>
+                                    <th style="text-align: center; width: 100px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="all-transactions-list">
+                                <!-- Dinamicamente preenchido -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination (Simulated / Basic) -->
+                    <div class="table-pagination">
+                        <span class="pagination-info" id="pagination-info">Mostrando 0 de 0 transações</span>
+                        <div class="pagination-buttons">
+                            <button class="btn btn-icon" id="btn-prev-page" disabled><i data-lucide="chevron-left"></i></button>
+                            <button class="btn btn-icon" id="btn-next-page" disabled><i data-lucide="chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Forecast Tab -->
+            <section id="forecast" class="tab-content">
+                <div class="forecast-intro-card">
+                    <div class="intro-content">
+                        <h2>Previsão de Fluxo de Caixa Futuro</h2>
+                        <p>Esta projeção estima seus próximos 12 meses combinando suas transações marcadas como <strong>Recorrentes</strong> (Salários, Aluguel, Assinaturas, etc.) e a <strong>Média Histórica</strong> de seus gastos variáveis nos últimos meses.</p>
+                    </div>
+                    <div class="intro-stats">
+                        <div class="intro-stat-box">
+                            <span class="stat-label">Margem Mensal Média</span>
+                            <span class="stat-value text-success" id="forecast-avg-margin">R$ 0,00</span>
+                        </div>
+                        <div class="intro-stat-box">
+                            <span class="stat-label">Meses Positivos</span>
+                            <span class="stat-value" id="forecast-positive-months">0 / 12</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Forecast Settings & One-Time Projections -->
+                <div class="forecast-tools-grid">
+                    <!-- Forecast Configurations -->
+                    <div class="section-card">
+                        <div class="card-header border-bottom">
+                            <h3>Parâmetros da Previsão</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="forecast-history-months">Média Histórica Utilizada</label>
+                                <select id="forecast-history-months" class="form-control">
+                                    <option value="3">Últimos 3 meses (Mais sensível a mudanças recentes)</option>
+                                    <option value="6" selected>Últimos 6 meses (Recomendado - Equilibrado)</option>
+                                    <option value="12">Últimos 12 meses (Ideal para amortecer sazonalidades)</option>
+                                </select>
+                                <span class="input-tip">Usado para calcular a estimativa média mensal das despesas não recorrentes (ex: alimentação, lazer).</span>
+                            </div>
+                            <div class="form-group margin-top">
+                                <label for="forecast-growth-rate">Ajuste de Inflação / Crescimento de Gastos (%)</label>
+                                <div class="input-with-suffix">
+                                    <input type="number" id="forecast-growth-rate" class="form-control" value="0.0" step="0.1">
+                                    <span class="suffix">% ao mês</span>
+                                </div>
+                                <span class="input-tip">Aumenta percentualmente suas despesas variáveis estimadas mês a mês.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Future Adjustments (Eventos Avulsos) -->
+                    <div class="section-card">
+                        <div class="card-header border-bottom">
+                            <h3>Eventos Futuros Previstos (Avulsos)</h3>
+                            <button class="btn btn-secondary btn-small" id="btn-open-forecast-event-modal">
+                                <i data-lucide="plus"></i> Adicionar Planejado
+                            </button>
+                        </div>
+                        <div class="card-body scroll-y" style="max-height: 250px;">
+                            <p class="empty-state-text" id="empty-forecast-events">Nenhum evento futuro avulso cadastrado. Adicione bônus, 13º salário, impostos sazonais ou compras planejadas para refinar a projeção.</p>
+                            <ul class="forecast-events-list" id="forecast-events-list">
+                                <!-- Dinamicamente preenchido -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Forecast Matrix -->
+                <div class="section-card margin-top">
+                    <div class="card-header border-bottom">
+                        <h3>Projeção Mês a Mês</h3>
+                    </div>
+                    <div class="table-container">
+                        <table class="transaction-table forecast-table">
+                            <thead>
+                                <tr>
+                                    <th>Mês/Ano</th>
+                                    <th>Receitas Previstas</th>
+                                    <th>Despesas Previstas</th>
+                                    <th>Resultado Líquido</th>
+                                    <th>Saldo Projetado</th>
+                                    <th>Ações/Detalhes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="forecast-matrix-list">
+                                <!-- Dinamicamente preenchido -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section id="settings" class="tab-content">
+                <div class="settings-grid">
+                    <!-- Database Connection Info -->
+                    <div class="section-card">
+                        <div class="card-header border-bottom">
+                            <h3>Conexão com o Banco de Dados</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="settings-description">Esta aplicação está configurada para se conectar a um banco de dados PostgreSQL local ou em nuvem.</p>
+                            
+                            <div class="form-group">
+                                <label>Status do Banco</label>
+                                <div id="db-connection-status-container" style="margin-top: 8px;">
+                                    <span id="db-status-badge" class="badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 6px 12px; border-radius: 4px; font-weight: 600;">Verificando conexão...</span>
+                                </div>
+                            </div>
+
+                            <div class="form-group margin-top">
+                                <label>URL do Banco de Dados (DATABASE_URL)</label>
+                                <input type="text" id="settings-db-url" class="form-control" readonly value="postgresql://***:***@localhost:5432/dinheiro_db" style="cursor: not-allowed; opacity: 0.7;">
+                                <span class="input-tip">A string de conexão completa é injetada com segurança via variável de ambiente.</span>
+                            </div>
+
+                            <div class="settings-actions" style="margin-top: 20px;">
+                                <button class="btn btn-primary" id="btn-recheck-db">
+                                    <i data-lucide="refresh-cw"></i> Testar Conexão
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Coolify Deploy Guide -->
+                    <div class="section-card">
+                        <div class="card-header border-bottom">
+                            <h3>Como subir no Coolify</h3>
+                        </div>
+                        <div class="card-body">
+                            <ol class="step-guide" style="padding-left: 20px; display: flex; flex-direction: column; gap: 12px;">
+                                <li>Crie um repositório no seu GitHub e envie este código para lá.</li>
+                                <li>No painel do Coolify, adicione um novo recurso do tipo **PostgreSQL** (banco de dados).</li>
+                                <li>Adicione uma nova aplicação conectando ao seu repositório GitHub.</li>
+                                <li>Nas configurações da aplicação no Coolify, adicione a variável de ambiente:
+                                    <pre style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--border-radius-sm); font-size: 11px; margin-top: 8px; color: #a5b4fc; border: 1px solid var(--card-border); overflow-x: auto;">
+DATABASE_URL=postgresql://[usuario]:[senha]@[host]:[porta]/[banco]</pre>
+                                    <span class="input-tip" style="margin-top: 4px; display: block;"><em>Dica: O Coolify permite vincular o banco diretamente, preenchendo essa variável automaticamente!</em></span>
+                                </li>
+                                <li>O Coolify usará o `Dockerfile` incluído e fará o build e deploy. O banco será configurado e tabelas criadas automaticamente na inicialização!</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal: Adicionar Transação -->
+    <div class="modal-overlay" id="transaction-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-title">Nova Transação</h3>
+                <button class="btn-close-modal" id="btn-close-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="transaction-form">
+                <input type="hidden" id="tx-id" name="id" value="">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="tx-type">Tipo</label>
+                            <div class="toggle-switch-group">
+                                <input type="radio" id="tx-type-expense" name="Tipo" value="Saída" checked>
+                                <label for="tx-type-expense" class="toggle-btn expense-btn">Saída</label>
+                                
+                                <input type="radio" id="tx-type-income" name="Tipo" value="Entrada">
+                                <label for="tx-type-income" class="toggle-btn income-btn">Entrada</label>
+                            </div>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="tx-amount">Valor (R$)</label>
+                            <input type="number" id="tx-amount" name="Valor" step="0.01" min="0.01" class="form-control" placeholder="0,00" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tx-description">Descrição</label>
+                        <input type="text" id="tx-description" name="Descrição" class="form-control" placeholder="Ex: Supermercado, Salário, Energia elétrica" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="tx-category">Categoria</label>
+                            <select id="tx-category" name="Categoria" class="form-control" required>
+                                <option value="" disabled selected>Selecione...</option>
+                                <option value="Alimentação">Alimentação</option>
+                                <option value="Transporte">Transporte</option>
+                                <option value="Moradia">Moradia</option>
+                                <option value="Lazer">Lazer</option>
+                                <option value="Saúde">Saúde</option>
+                                <option value="Educação">Educação</option>
+                                <option value="Salário">Salário</option>
+                                <option value="Investimentos">Investimentos</option>
+                                <option value="Outros">Outros (Personalizar...)</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="tx-date">Data</label>
+                            <input type="date" id="tx-date" name="Data" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="tx-custom-category-group" style="display: none;">
+                        <label for="tx-custom-category">Nome da Categoria Personalizada</label>
+                        <input type="text" id="tx-custom-category" class="form-control" placeholder="Ex: Pet, Presentes, Viagem">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tx-recurrence">Recorrência</label>
+                        <select id="tx-recurrence" name="Recorrência" class="form-control" required>
+                            <option value="Única" selected>Transação Única</option>
+                            <option value="Mensal">Mensal (Fixo/Recorrente)</option>
+                            <option value="Anual">Anual (IPVA, Seguros, etc.)</option>
+                        </select>
+                        <span class="input-tip">Transações recorrentes aparecem automaticamente nas projeções dos meses seguintes.</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-tx">
+                        <span id="submit-btn-text">Adicionar</span>
+                        <i data-lucide="plus" id="submit-btn-icon"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Adicionar Evento de Previsão Avulso -->
+    <div class="modal-overlay" id="forecast-event-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Planejar Evento Futuro Avulso</h3>
+                <button class="btn-close-modal" id="btn-close-forecast-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="forecast-event-form">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label>Tipo</label>
+                            <div class="toggle-switch-group">
+                                <input type="radio" id="fe-type-expense" name="type" value="Saída" checked>
+                                <label for="fe-type-expense" class="toggle-btn expense-btn">Saída</label>
+                                
+                                <input type="radio" id="fe-type-income" name="type" value="Entrada">
+                                <label for="fe-type-income" class="toggle-btn income-btn">Entrada</label>
+                            </div>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="fe-amount">Valor (R$)</label>
+                            <input type="number" id="fe-amount" name="amount" step="0.01" min="0.01" class="form-control" placeholder="0,00" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fe-description">Descrição do Evento</label>
+                        <input type="text" id="fe-description" name="description" class="form-control" placeholder="Ex: Compra de Notebook, Bônus de Final de Ano, IPVA" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-12">
+                            <label for="fe-date">Mês e Ano do Evento</label>
+                            <input type="month" id="fe-date" name="date" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-forecast-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span>Adicionar Evento</span>
+                        <i data-lucide="plus"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Detalhes da Previsão Mensal -->
+    <div class="modal-overlay" id="forecast-details-modal">
+        <div class="modal-card" style="max-width: 580px;">
+            <div class="modal-header">
+                <h3 id="fd-title">Detalhamento da Previsão</h3>
+                <button class="btn-close-modal" id="btn-close-fd-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="fd-body" style="max-height: 480px; overflow-y: auto;">
+                <!-- Dinamicamente preenchido -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btn-close-fd-footer">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert / Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Main Logic Script -->
+    <script src="app.js"></script>
+</body>
+</html>

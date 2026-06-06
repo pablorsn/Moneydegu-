@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: dinheiro_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: dinheiro_user
+      POSTGRES_PASSWORD: dinheiro_password
+      POSTGRES_DB: dinheiro_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  web:
+    build: .
+    container_name: dinheiro_web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://dinheiro_user:dinheiro_password@db:5432/dinheiro_db
+      - NODE_ENV=development
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

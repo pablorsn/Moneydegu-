@@ -1,0 +1,1642 @@
+// --- ESTADO GLOBAL DA APLICAÇÃO ---
+const AppState = {
+    transactions: [],
+    forecastEvents: [],
+    isLoading: false,
+    isDemoMode: false,
+    
+    // Paginação
+    currentPage: 1,
+    pageSize: 10,
+    filteredTransactions: [],
+
+    // Gráficos (instâncias do Chart.js)
+    balanceChart: null,
+    categoryChart: null
+};
+
+// --- DADOS DE SIMULAÇÃO (MODO DEMO) ---
+const DEMO_TRANSACTIONS = [
+    // Janeiro 2026
+    { Data: "2026-01-05", Descrição: "Salário Recebido", Categoria: "Salário", Valor: 6500.00, Tipo: "Entrada", Recorrência: "Mensal" },
+    { Data: "2026-01-10", Descrição: "Aluguel e Condomínio", Categoria: "Moradia", Valor: 1800.00, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-01-12", Descrição: "Supermercado Semanal", Categoria: "Alimentação", Valor: 350.50, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-01-15", Descrição: "Assinatura Netflix & Spotify", Categoria: "Lazer", Valor: 75.90, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-01-20", Descrição: "Gasolina", Categoria: "Transporte", Valor: 180.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-01-25", Descrição: "Consulta Odontológica", Categoria: "Saúde", Valor: 220.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-01-28", Descrição: "Freelance Desenvolvimento", Categoria: "Investimentos", Valor: 1200.00, Tipo: "Entrada", Recorrência: "Única" },
+    
+    // Fevereiro 2026
+    { Data: "2026-02-05", Descrição: "Salário Recebido", Categoria: "Salário", Valor: 6500.00, Tipo: "Entrada", Recorrência: "Mensal" },
+    { Data: "2026-02-10", Descrição: "Aluguel e Condomínio", Categoria: "Moradia", Valor: 1800.00, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-02-11", Descrição: "Supermercado Semanal", Categoria: "Alimentação", Valor: 420.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-02-14", Descrição: "Jantar Especial Namorados", Categoria: "Lazer", Valor: 250.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-02-15", Descrição: "Assinatura Netflix & Spotify", Categoria: "Lazer", Valor: 75.90, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-02-18", Descrição: "Curso online JavaScript", Categoria: "Educação", Valor: 150.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-02-22", Descrição: "Gasolina", Categoria: "Transporte", Valor: 210.00, Tipo: "Saída", Recorrência: "Única" },
+
+    // Março 2026
+    { Data: "2026-03-05", Descrição: "Salário Recebido", Categoria: "Salário", Valor: 6500.00, Tipo: "Entrada", Recorrência: "Mensal" },
+    { Data: "2026-03-10", Descrição: "Aluguel e Condomínio", Categoria: "Moradia", Valor: 1800.00, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-03-12", Descrição: "Supermercado", Categoria: "Alimentação", Valor: 390.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-03-15", Descrição: "Assinatura Netflix & Spotify", Categoria: "Lazer", Valor: 75.90, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-03-20", Descrição: "Gasolina", Categoria: "Transporte", Valor: 160.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-03-24", Descrição: "Remédios Farmácia", Categoria: "Saúde", Valor: 85.30, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-03-30", Descrição: "Dividendos FIIs", Categoria: "Investimentos", Valor: 320.00, Tipo: "Entrada", Recorrência: "Mensal" },
+
+    // Abril 2026
+    { Data: "2026-04-05", Descrição: "Salário Recebido", Categoria: "Salário", Valor: 6500.00, Tipo: "Entrada", Recorrência: "Mensal" },
+    { Data: "2026-04-10", Descrição: "Aluguel e Condomínio", Categoria: "Moradia", Valor: 1800.00, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-04-12", Descrição: "Supermercado Quizenal", Categoria: "Alimentação", Valor: 480.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-04-15", Descrição: "Assinatura Netflix & Spotify", Categoria: "Lazer", Valor: 75.90, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-04-18", Descrição: "Manutenção Carro", Categoria: "Transporte", Valor: 650.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-04-20", Descrição: "Gasolina", Categoria: "Transporte", Valor: 190.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-04-30", Descrição: "Dividendos FIIs", Categoria: "Investimentos", Valor: 325.00, Tipo: "Entrada", Recorrência: "Mensal" },
+
+    // Maio 2026 (Mês Atual - Simulação até o momento)
+    { Data: "2026-05-05", Descrição: "Salário Recebido", Categoria: "Salário", Valor: 6500.00, Tipo: "Entrada", Recorrência: "Mensal" },
+    { Data: "2026-05-10", Descrição: "Aluguel e Condomínio", Categoria: "Moradia", Valor: 1800.00, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-05-12", Descrição: "Supermercado", Categoria: "Alimentação", Valor: 375.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-05-15", Descrição: "Assinatura Netflix & Spotify", Categoria: "Lazer", Valor: 75.90, Tipo: "Saída", Recorrência: "Mensal" },
+    { Data: "2026-05-20", Descrição: "Gasolina", Categoria: "Transporte", Valor: 180.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-05-25", Descrição: "Cinema e Jantar", Categoria: "Lazer", Valor: 140.00, Tipo: "Saída", Recorrência: "Única" },
+    { Data: "2026-05-28", Descrição: "Dividendos FIIs", Categoria: "Investimentos", Valor: 330.00, Tipo: "Entrada", Recorrência: "Mensal" }
+];
+
+const DEFAULT_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Educação", "Salário", "Investimentos", "Outros"];
+
+// --- INICIALIZAÇÃO ---
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+    setupEventListeners();
+});
+
+function initApp() {
+    // Configura os ícones do Lucide
+    lucide.createIcons();
+
+    // Define a data máxima/padrão no formulário como hoje
+    const today = new Date().toISOString().split('T')[0];
+    const txDateEl = document.getElementById('tx-date');
+    if (txDateEl) txDateEl.value = today;
+
+    // Define o mês atual nas configurações do planejador de eventos
+    const currentYearMonth = today.substring(0, 7); // YYYY-MM
+    const feDateEl = document.getElementById('fe-date');
+    if (feDateEl) feDateEl.value = currentYearMonth;
+
+    // Carrega dados do Servidor ou inicia Modo Demo de fallback
+    loadDataFromServer();
+    checkDatabaseStatus();
+}
+
+async function checkDatabaseStatus() {
+    const badge = document.getElementById('db-status-badge');
+    if (!badge) return;
+
+    badge.className = 'badge';
+    badge.style.background = 'rgba(245, 158, 11, 0.2)';
+    badge.style.color = '#f59e0b';
+    badge.innerText = 'Verificando conexão...';
+
+    try {
+        const res = await fetch('/api/db-status');
+        const data = await res.json();
+        if (res.ok && data.status === 'connected') {
+            badge.style.background = 'rgba(16, 185, 129, 0.2)';
+            badge.style.color = '#10b981';
+            badge.innerText = 'Conectado (PostgreSQL local)';
+        } else {
+            throw new Error(data.error || 'Banco inacessível');
+        }
+    } catch (error) {
+        console.error(error);
+        badge.style.background = 'rgba(244, 63, 94, 0.2)';
+        badge.style.color = '#f43f5e';
+        badge.innerText = 'Banco Desconectado / Erro';
+    }
+}
+
+// --- SETUP DOS LISTENERS DE EVENTOS ---
+function setupEventListeners() {
+    // 1. Navegação por abas
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabId = item.getAttribute('data-tab');
+            switchTab(tabId);
+        });
+    });
+
+    // Link "Ver Todas" no dashboard direciona para a aba de transações
+    document.getElementById('btn-see-all-transactions').addEventListener('click', () => {
+        switchTab('transactions');
+    });
+
+    // 2. Modais (Abertura/Fechamento)
+    const txModal = document.getElementById('transaction-modal');
+    const feModal = document.getElementById('forecast-event-modal');
+    
+    document.getElementById('btn-open-modal').addEventListener('click', () => {
+        document.getElementById('tx-id').value = '';
+        document.getElementById('modal-title').innerText = 'Nova Transação';
+        document.getElementById('submit-btn-text').innerText = 'Adicionar';
+        const submitIcon = document.getElementById('submit-btn-icon');
+        if (submitIcon) {
+            submitIcon.className = '';
+            submitIcon.setAttribute('data-lucide', 'plus');
+        }
+        document.getElementById('tx-custom-category-group').style.display = 'none';
+        document.getElementById('tx-custom-category').value = '';
+        document.getElementById('tx-custom-category').required = false;
+        openModal(txModal);
+        lucide.createIcons();
+    });
+    document.getElementById('btn-close-modal').addEventListener('click', () => closeModal(txModal));
+    document.getElementById('btn-cancel-modal').addEventListener('click', () => closeModal(txModal));
+    
+    const fdModal = document.getElementById('forecast-details-modal');
+    document.getElementById('btn-open-forecast-event-modal').addEventListener('click', () => openModal(feModal));
+    document.getElementById('btn-close-forecast-modal').addEventListener('click', () => closeModal(feModal));
+    document.getElementById('btn-cancel-forecast-modal').addEventListener('click', () => closeModal(feModal));
+    
+    document.getElementById('btn-close-fd-modal').addEventListener('click', () => closeModal(fdModal));
+    document.getElementById('btn-close-fd-footer').addEventListener('click', () => closeModal(fdModal));
+
+    // Fechar modais ao clicar fora
+    window.addEventListener('click', (e) => {
+        if (e.target === txModal) closeModal(txModal);
+        if (e.target === feModal) closeModal(feModal);
+        if (e.target === fdModal) closeModal(fdModal);
+    });
+
+    // 3. Submissão de Formulários
+    document.getElementById('transaction-form').addEventListener('submit', handleTransactionSubmit);
+    document.getElementById('forecast-event-form').addEventListener('submit', handleForecastEventSubmit);
+
+    // Evento de Categoria Personalizada
+    const txCategorySelect = document.getElementById('tx-category');
+    const customCategoryGroup = document.getElementById('tx-custom-category-group');
+    const customCategoryInput = document.getElementById('tx-custom-category');
+
+    txCategorySelect.addEventListener('change', (e) => {
+        if (e.target.value === 'Outros') {
+            customCategoryGroup.style.display = 'flex';
+            customCategoryInput.required = true;
+            customCategoryInput.focus();
+        } else {
+            customCategoryGroup.style.display = 'none';
+            customCategoryInput.required = false;
+            customCategoryInput.value = '';
+        }
+    });
+
+    // 4. Filtros da Tabela de Transações
+    document.getElementById('filter-search').addEventListener('input', applyFilters);
+    document.getElementById('filter-month').addEventListener('change', applyFilters);
+    document.getElementById('filter-category').addEventListener('change', applyFilters);
+    document.getElementById('filter-type').addEventListener('change', applyFilters);
+    document.getElementById('btn-clear-filters').addEventListener('click', clearFilters);
+
+    // 5. Configurações da Previsão (Forecast)
+    document.getElementById('forecast-history-months').addEventListener('change', () => {
+        calculateForecastAndRender();
+        showToast('Parâmetros de previsão atualizados!', 'info');
+    });
+    document.getElementById('forecast-growth-rate').addEventListener('input', () => {
+        calculateForecastAndRender();
+    });
+
+    // 6. Configurações da API
+    const btnRecheck = document.getElementById('btn-recheck-db');
+    if (btnRecheck) {
+        btnRecheck.addEventListener('click', () => {
+            checkDatabaseStatus();
+            showToast('Verificando conexão com o banco de dados...', 'info');
+        });
+    }
+
+    // 7. Paginação
+    document.getElementById('btn-prev-page').addEventListener('click', () => {
+        if (AppState.currentPage > 1) {
+            AppState.currentPage--;
+            renderTransactionsTable();
+        }
+    });
+    document.getElementById('btn-next-page').addEventListener('click', () => {
+        const totalPages = Math.ceil(AppState.filteredTransactions.length / AppState.pageSize);
+        if (AppState.currentPage < totalPages) {
+            AppState.currentPage++;
+            renderTransactionsTable();
+        }
+    });
+}
+
+// --- GERENCIAMENTO DE ABAS ---
+function switchTab(tabId) {
+    // Atualiza classes ativas da barra de navegação
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(nav => {
+        if (nav.getAttribute('data-tab') === tabId) {
+            nav.classList.add('active');
+        } else {
+            nav.classList.remove('active');
+        }
+    });
+
+    // Atualiza visibilidade dos containers
+    document.querySelectorAll('.tab-content').forEach(content => {
+        if (content.id === tabId) {
+            content.classList.add('active');
+        } else {
+            content.classList.remove('active');
+        }
+    });
+
+    // Rola para o topo do conteúdo
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Ações específicas ao abrir determinadas abas
+    if (tabId === 'dashboard') {
+        renderDashboardCharts();
+    }
+}
+
+// --- CONTROLE DE MODAIS ---
+function openModal(modalEl) {
+    modalEl.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal(modalEl) {
+    modalEl.classList.remove('active');
+    document.body.style.overflow = '';
+    
+    const form = modalEl.querySelector('form');
+    if (form) {
+        form.reset();
+        const dateInput = form.querySelector('input[type="date"]');
+        if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    }
+}
+
+// --- MODO DEMO ---
+function enableDemoMode() {
+    AppState.isDemoMode = true;
+    
+    const localSaved = localStorage.getItem('finvue_demo_transactions');
+    if (localSaved) {
+        AppState.transactions = JSON.parse(localSaved).map((t, idx) => ({
+            Id: t.Id !== undefined ? t.Id : -(idx + 1),
+            ...t
+        }));
+    } else {
+        AppState.transactions = DEMO_TRANSACTIONS.map((t, idx) => ({
+            Id: -(idx + 1),
+            ...t
+        }));
+        localStorage.setItem('finvue_demo_transactions', JSON.stringify(AppState.transactions));
+    }
+
+    const localEvents = localStorage.getItem('finvue_demo_forecast_events');
+    AppState.forecastEvents = localEvents ? JSON.parse(localEvents) : [];
+
+    updateConnectionStatusUI('demo');
+    processAndRefreshUI();
+}
+
+function updateConnectionStatusUI(status) {
+    const dot = document.getElementById('status-dot');
+    const label = document.getElementById('status-text');
+    const card = document.getElementById('status-card');
+
+    if (!dot || !label || !card) return;
+
+    dot.className = 'status-indicator-dot';
+    
+    if (status === 'online') {
+        dot.classList.add('online');
+        label.innerText = 'Conectado (Servidor)';
+        card.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+    } else if (status === 'demo') {
+        dot.classList.add('demo-mode');
+        label.innerText = 'Modo Simulação';
+        card.style.borderColor = 'rgba(245, 158, 11, 0.2)';
+    } else if (status === 'syncing') {
+        dot.classList.add('demo-mode');
+        label.innerText = 'Sincronizando...';
+        card.style.borderColor = 'rgba(99, 102, 241, 0.2)';
+    } else {
+        dot.classList.add('error');
+        label.innerText = 'Erro de Conexão';
+        card.style.borderColor = 'rgba(244, 63, 94, 0.2)';
+    }
+}
+
+// --- LEITURA DO SERVIDOR BACKEND ---
+async function loadDataFromServer() {
+    AppState.isLoading = true;
+    updateConnectionStatusUI('syncing');
+
+    try {
+        // 1. Carregar transações do backend
+        const res = await fetch('/api/transactions');
+        if (!res.ok) throw new Error('Falha ao obter transações do servidor');
+        const data = await res.json();
+        
+        AppState.transactions = data.map(row => ({
+            Id: row.id,
+            Data: row.data || '',
+            Descrição: row.descricao || 'Sem descrição',
+            Categoria: row.categoria || 'Outros',
+            Valor: parseFloat(row.valor) || 0,
+            Tipo: row.tipo || 'Saída',
+            Recorrência: row.recorrencia || 'Única'
+        }));
+
+        // 2. Carregar eventos de previsão do backend
+        const resEvents = await fetch('/api/forecast-events');
+        if (resEvents.ok) {
+            const eventsData = await resEvents.json();
+            AppState.forecastEvents = eventsData.map(row => ({
+                id: row.id,
+                description: row.description || '',
+                amount: parseFloat(row.amount) || 0,
+                type: row.type || 'Saída',
+                date: row.date || ''
+            }));
+        }
+
+        AppState.isDemoMode = false;
+        updateConnectionStatusUI('online');
+        
+        // Cacheia localmente para fallback
+        localStorage.setItem('finvue_cached_transactions', JSON.stringify(AppState.transactions));
+        localStorage.setItem('finvue_cached_forecast_events', JSON.stringify(AppState.forecastEvents));
+        
+        processAndRefreshUI();
+    } catch (error) {
+        console.error('Erro ao carregar dados do servidor:', error);
+        showToast('Erro ao carregar dados do servidor. Ativando cache/simulação.', 'error');
+        updateConnectionStatusUI('error');
+
+        // Fallback para cache local de transações
+        const cached = localStorage.getItem('finvue_cached_transactions');
+        const cachedEvents = localStorage.getItem('finvue_cached_forecast_events');
+        if (cached) {
+            AppState.transactions = JSON.parse(cached);
+            AppState.forecastEvents = cachedEvents ? JSON.parse(cachedEvents) : [];
+            AppState.isDemoMode = false;
+            processAndRefreshUI();
+        } else {
+            enableDemoMode();
+        }
+    } finally {
+        AppState.isLoading = false;
+    }
+}
+
+// --- GRAVAÇÃO NO SERVIDOR (INSERT) ---
+async function addTransactionToSupabase(transaction) {
+    if (AppState.isDemoMode) {
+        AppState.transactions.unshift(transaction);
+        localStorage.setItem('finvue_demo_transactions', JSON.stringify(AppState.transactions));
+        showToast('Transação criada localmente (Modo Simulação)!', 'success');
+        processAndRefreshUI();
+        return true;
+    }
+
+    try {
+        const res = await fetch('/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                data: transaction.Data,
+                descricao: transaction.Descrição,
+                categoria: transaction.Categoria,
+                valor: transaction.Valor,
+                tipo: transaction.Tipo,
+                recorrencia: transaction.Recorrência
+            })
+        });
+
+        if (!res.ok) throw new Error('Falha ao gravar no servidor.');
+        
+        showToast('Transação salva com sucesso!', 'success');
+        await loadDataFromServer();
+        return true;
+    } catch (error) {
+        console.error('Erro ao salvar:', error);
+        showToast('Erro ao salvar no servidor.', 'error');
+        return false;
+    }
+}
+
+// --- ATUALIZAÇÃO NO SERVIDOR (UPDATE) ---
+async function updateTransactionInSupabase(transaction) {
+    if (AppState.isDemoMode) {
+        const idx = AppState.transactions.findIndex(t => t.Id === transaction.Id);
+        if (idx !== -1) {
+            AppState.transactions[idx] = transaction;
+            localStorage.setItem('finvue_demo_transactions', JSON.stringify(AppState.transactions));
+            showToast('Transação alterada localmente (Modo Simulação)!', 'success');
+            processAndRefreshUI();
+            return true;
+        }
+        return false;
+    }
+
+    try {
+        const res = await fetch(`/api/transactions/${transaction.Id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                data: transaction.Data,
+                descricao: transaction.Descrição,
+                categoria: transaction.Categoria,
+                valor: transaction.Valor,
+                tipo: transaction.Tipo,
+                recorrencia: transaction.Recorrência
+            })
+        });
+
+        if (!res.ok) throw new Error('Falha ao atualizar no servidor.');
+        
+        showToast('Transação atualizada com sucesso!', 'success');
+        await loadDataFromServer();
+        return true;
+    } catch (error) {
+        console.error('Erro ao atualizar:', error);
+        showToast('Erro ao atualizar transação no servidor.', 'error');
+        return false;
+    }
+}
+
+// --- EXCLUSÃO NO SERVIDOR (DELETE) ---
+async function deleteTransactionFromSupabase(id) {
+    if (AppState.isDemoMode) {
+        AppState.transactions = AppState.transactions.filter(t => t.Id !== id);
+        localStorage.setItem('finvue_demo_transactions', JSON.stringify(AppState.transactions));
+        showToast('Transação excluída localmente (Modo Simulação)!', 'success');
+        processAndRefreshUI();
+        return true;
+    }
+
+    try {
+        const res = await fetch(`/api/transactions/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!res.ok) throw new Error('Falha ao excluir no servidor.');
+        
+        showToast('Transação excluída com sucesso!', 'success');
+        await loadDataFromServer();
+        return true;
+    } catch (error) {
+        console.error('Erro ao excluir:', error);
+        showToast('Erro ao excluir transação no servidor.', 'error');
+        return false;
+    }
+}
+
+// --- PROCESSAMENTO E RENDERIZAÇÃO DA UI ---
+function processAndRefreshUI() {
+    AppState.transactions.sort((a, b) => new Date(b.Data) - new Date(a.Data));
+    populateFilterDropdowns();
+    updateMetricsUI();
+    renderRecentTransactions();
+    applyFilters();
+    calculateForecastAndRender();
+    renderDashboardCharts();
+}
+
+function populateFilterDropdowns() {
+    const monthSelect = document.getElementById('filter-month');
+    const categorySelect = document.getElementById('filter-category');
+
+    const currentMonthSel = monthSelect.value;
+    const currentCategorySel = categorySelect.value;
+
+    const months = new Set();
+    const categories = new Set(DEFAULT_CATEGORIES);
+
+    AppState.transactions.forEach(t => {
+        if (t.Data) months.add(t.Data.substring(0, 7));
+        if (t.Categoria) categories.add(t.Categoria);
+    });
+
+    const sortedMonths = Array.from(months).sort().reverse();
+    const sortedCategories = Array.from(categories).sort();
+
+    monthSelect.innerHTML = '<option value="all">Todos os Meses</option>';
+    sortedMonths.forEach(m => {
+        const [year, month] = m.split('-');
+        const dateObj = new Date(year, parseInt(month) - 1, 1);
+        const monthName = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        const formattedName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+        monthSelect.innerHTML += `<option value="${m}">${formattedName}</option>`;
+    });
+
+    categorySelect.innerHTML = '<option value="all">Todas Categorias</option>';
+    sortedCategories.forEach(c => {
+        categorySelect.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+
+    monthSelect.value = currentMonthSel;
+    categorySelect.value = currentCategorySel;
+}
+
+function updateMetricsUI() {
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    console.log("updateMetricsUI -> currentYearMonth (local):", currentYearMonth);
+    
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevYearMonth = prevMonthDate.toISOString().substring(0, 7);
+
+    let currentMonthIncome = 0;
+    let currentMonthExpense = 0;
+    let prevMonthIncome = 0;
+    let prevMonthExpense = 0;
+    let totalBalance = 0;
+
+    AppState.transactions.forEach(t => {
+        const amount = t.Valor;
+        const type = t.Tipo;
+        const dateStr = t.Data;
+        const tYearMonth = dateStr.substring(0, 7);
+
+        if (tYearMonth <= currentYearMonth) {
+            if (type === 'Entrada') totalBalance += amount;
+            else totalBalance -= amount;
+        } else {
+            console.log("updateMetricsUI -> Ignorando do Saldo Atual (Futuro):", t.Descrição, t.Data, "tYearMonth:", tYearMonth);
+        }
+
+        if (tYearMonth === currentYearMonth) {
+            if (type === 'Entrada') currentMonthIncome += amount;
+            else currentMonthExpense += amount;
+        }
+
+        if (tYearMonth === prevYearMonth) {
+            if (type === 'Entrada') prevMonthIncome += amount;
+            else prevMonthExpense += amount;
+        }
+    });
+
+    document.getElementById('metric-income').innerText = formatCurrency(currentMonthIncome);
+    document.getElementById('metric-expense').innerText = formatCurrency(currentMonthExpense);
+    document.getElementById('metric-balance').innerText = formatCurrency(totalBalance);
+
+    const balanceCardValue = document.getElementById('metric-balance');
+    if (totalBalance < 0) balanceCardValue.style.color = 'var(--danger)';
+    else balanceCardValue.style.color = '#ffffff';
+
+    const incomeTrendEl = document.getElementById('income-trend');
+    if (prevMonthIncome > 0) {
+        const pctDiff = ((currentMonthIncome - prevMonthIncome) / prevMonthIncome) * 100;
+        renderTrendIndicator(incomeTrendEl, pctDiff);
+    } else {
+        incomeTrendEl.innerHTML = `<i data-lucide="minus"></i> N/A`;
+        incomeTrendEl.className = 'trend text-muted';
+    }
+
+    const expenseTrendEl = document.getElementById('expense-trend');
+    if (prevMonthExpense > 0) {
+        const pctDiff = ((currentMonthExpense - prevMonthExpense) / prevMonthExpense) * 100;
+        renderTrendIndicator(expenseTrendEl, pctDiff, true);
+    } else {
+        expenseTrendEl.innerHTML = `<i data-lucide="minus"></i> N/A`;
+        expenseTrendEl.className = 'trend text-muted';
+    }
+
+    lucide.createIcons();
+}
+
+function renderTrendIndicator(element, pct, isInverted = false) {
+    const formatted = Math.abs(pct).toFixed(0) + '%';
+    const isPositive = pct > 0;
+
+    element.innerHTML = '';
+    
+    if (pct === 0) {
+        element.innerHTML = `<i data-lucide="minus"></i> 0%`;
+        element.className = 'trend text-muted';
+    } else if (isPositive) {
+        element.innerHTML = `<i data-lucide="trending-up"></i> +${formatted}`;
+        element.className = isInverted ? 'trend negative' : 'trend positive';
+    } else {
+        element.innerHTML = `<i data-lucide="trending-down"></i> -${formatted}`;
+        element.className = isInverted ? 'trend positive' : 'trend negative';
+    }
+}
+
+function renderRecentTransactions() {
+    const container = document.getElementById('recent-transactions-list');
+    container.innerHTML = '';
+
+    const recent = AppState.transactions.slice(0, 5);
+
+    if (recent.length === 0) {
+        container.innerHTML = `<tr><td colspan="6" class="empty-state-text">Nenhuma transação cadastrada.</td></tr>`;
+        return;
+    }
+
+    recent.forEach(t => {
+        const row = document.createElement('tr');
+        const formattedDate = formatDateBR(t.Data);
+        const formattedVal = formatCurrency(t.Valor);
+        const valClass = t.Tipo === 'Entrada' ? 'tx-val income' : 'tx-val expense';
+        const sign = t.Tipo === 'Entrada' ? '+' : '-';
+        
+        row.innerHTML = `
+            <td>${formattedDate}</td>
+            <td style="font-weight: 500;">${t.Descrição}</td>
+            <td><span class="category-tag"><i data-lucide="${getCategoryIcon(t.Categoria)}"></i> ${t.Categoria}</span></td>
+            <td><span class="badge badge-recurrence ${t.Recorrência !== 'Única' ? 'active' : ''}">${t.Recorrência}</span></td>
+            <td class="${valClass}">${sign} ${formattedVal}</td>
+            <td>
+                <div class="table-actions">
+                    <button class="btn-table-action edit" title="Editar"><i data-lucide="edit-3"></i></button>
+                    <button class="btn-table-action delete" title="Excluir"><i data-lucide="trash-2"></i></button>
+                </div>
+            </td>
+        `;
+        
+        row.querySelector('.edit').addEventListener('click', () => editTransaction(t.Id));
+        row.querySelector('.delete').addEventListener('click', () => deleteTransaction(t.Id));
+        
+        container.appendChild(row);
+    });
+
+    lucide.createIcons();
+}
+
+function applyFilters() {
+    const searchQuery = document.getElementById('filter-search').value.toLowerCase();
+    const filterMonth = document.getElementById('filter-month').value;
+    const filterCategory = document.getElementById('filter-category').value;
+    const filterType = document.getElementById('filter-type').value;
+
+    AppState.filteredTransactions = AppState.transactions.filter(t => {
+        const matchesSearch = t.Descrição.toLowerCase().includes(searchQuery) || 
+                              t.Categoria.toLowerCase().includes(searchQuery);
+        const matchesMonth = filterMonth === 'all' || t.Data.startsWith(filterMonth);
+        const matchesCategory = filterCategory === 'all' || t.Categoria === filterCategory;
+        const matchesType = filterType === 'all' || t.Tipo === filterType;
+
+        return matchesSearch && matchesMonth && matchesCategory && matchesType;
+    });
+
+    AppState.currentPage = 1;
+    renderTransactionsTable();
+}
+
+function clearFilters() {
+    document.getElementById('filter-search').value = '';
+    document.getElementById('filter-month').value = 'all';
+    document.getElementById('filter-category').value = 'all';
+    document.getElementById('filter-type').value = 'all';
+    applyFilters();
+    showToast('Filtros limpos!', 'info');
+}
+
+function renderTransactionsTable() {
+    const container = document.getElementById('all-transactions-list');
+    container.innerHTML = '';
+
+    const startIdx = (AppState.currentPage - 1) * AppState.pageSize;
+    const endIdx = startIdx + AppState.pageSize;
+    const pageItems = AppState.filteredTransactions.slice(startIdx, endIdx);
+
+    const totalItems = AppState.filteredTransactions.length;
+    const showingCount = pageItems.length;
+    document.getElementById('pagination-info').innerText = `Mostrando ${totalItems > 0 ? startIdx + 1 : 0} a ${startIdx + showingCount} de ${totalItems} transações`;
+
+    document.getElementById('btn-prev-page').disabled = AppState.currentPage === 1;
+    const totalPages = Math.ceil(totalItems / AppState.pageSize);
+    document.getElementById('btn-next-page').disabled = AppState.currentPage >= totalPages || totalPages === 0;
+
+    if (pageItems.length === 0) {
+        container.innerHTML = `<tr><td colspan="7" class="empty-state-text">Nenhuma transação encontrada.</td></tr>`;
+        return;
+    }
+
+    pageItems.forEach(t => {
+        const row = document.createElement('tr');
+        const formattedDate = formatDateBR(t.Data);
+        const formattedVal = formatCurrency(t.Valor);
+        const valClass = t.Tipo === 'Entrada' ? 'tx-val income' : 'tx-val expense';
+        const sign = t.Tipo === 'Entrada' ? '+' : '-';
+        const badgeClass = t.Tipo === 'Entrada' ? 'badge badge-income' : 'badge badge-expense';
+        
+        row.innerHTML = `
+            <td>${formattedDate}</td>
+            <td style="font-weight: 600;">${t.Descrição}</td>
+            <td><span class="category-tag"><i data-lucide="${getCategoryIcon(t.Categoria)}"></i> ${t.Categoria}</span></td>
+            <td><span class="badge badge-recurrence ${t.Recorrência !== 'Única' ? 'active' : ''}">${t.Recorrência}</span></td>
+            <td><span class="${badgeClass}">${t.Tipo}</span></td>
+            <td class="${valClass}">${sign} ${formattedVal}</td>
+            <td>
+                <div class="table-actions">
+                    <button class="btn-table-action edit" title="Editar"><i data-lucide="edit-3"></i></button>
+                    <button class="btn-table-action delete" title="Excluir"><i data-lucide="trash-2"></i></button>
+                </div>
+            </td>
+        `;
+        
+        row.querySelector('.edit').addEventListener('click', () => editTransaction(t.Id));
+        row.querySelector('.delete').addEventListener('click', () => deleteTransaction(t.Id));
+        
+        container.appendChild(row);
+    });
+
+    lucide.createIcons();
+}
+
+async function handleTransactionSubmit(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const amount = parseFloat(formData.get('Valor'));
+    if (isNaN(amount) || amount <= 0) {
+        showToast('Por favor, informe um valor maior que zero.', 'warning');
+        return;
+    }
+
+    const txId = formData.get('id');
+    let category = formData.get('Categoria');
+    if (category === 'Outros') {
+        const customCategoryVal = document.getElementById('tx-custom-category').value.trim();
+        if (customCategoryVal) {
+            category = customCategoryVal;
+        }
+    }
+
+    const tx = {
+        Data: formData.get('Data'),
+        Descrição: formData.get('Descrição'),
+        Categoria: category,
+        Valor: amount,
+        Tipo: formData.get('Tipo'),
+        Recorrência: formData.get('Recorrência')
+    };
+
+    const submitBtn = document.getElementById('btn-submit-tx');
+    const oldText = document.getElementById('submit-btn-text').innerText;
+    document.getElementById('submit-btn-text').innerText = 'Gravando...';
+    submitBtn.disabled = true;
+
+    try {
+        let success = false;
+        if (txId) {
+            tx.Id = AppState.isDemoMode ? parseInt(txId) : (isNaN(txId) ? txId : parseInt(txId));
+            success = await updateTransactionInSupabase(tx);
+        } else {
+            if (AppState.isDemoMode) {
+                const nextId = AppState.transactions.length > 0 ? Math.min(...AppState.transactions.map(t => t.Id)) - 1 : -1;
+                tx.Id = nextId;
+            }
+            success = await addTransactionToSupabase(tx);
+        }
+
+        if (success) {
+            closeModal(document.getElementById('transaction-modal'));
+        }
+    } catch (err) {
+        console.error(err);
+    } finally {
+        document.getElementById('submit-btn-text').innerText = oldText;
+        submitBtn.disabled = false;
+    }
+}
+
+// --- EDICÃO E EXCLUSÃO (UI HANDLERS) ---
+function editTransaction(id) {
+    const tx = AppState.transactions.find(t => t.Id === id);
+    if (!tx) {
+        showToast('Transação não encontrada.', 'error');
+        return;
+    }
+
+    // Preenche os campos do formulário
+    document.getElementById('tx-id').value = tx.Id;
+    document.getElementById('tx-description').value = tx.Descrição;
+    document.getElementById('tx-amount').value = tx.Valor;
+    
+    // Tratamento para categoria padrão vs customizada
+    const standardCategories = ["Alimentação", "Transporte", "Moradia", "Lazer", "Saúde", "Educação", "Salário", "Investimentos"];
+    if (standardCategories.includes(tx.Categoria)) {
+        document.getElementById('tx-category').value = tx.Categoria;
+        document.getElementById('tx-custom-category-group').style.display = 'none';
+        document.getElementById('tx-custom-category').value = '';
+        document.getElementById('tx-custom-category').required = false;
+    } else {
+        document.getElementById('tx-category').value = 'Outros';
+        document.getElementById('tx-custom-category-group').style.display = 'flex';
+        document.getElementById('tx-custom-category').value = tx.Categoria;
+        document.getElementById('tx-custom-category').required = true;
+    }
+    
+    document.getElementById('tx-date').value = tx.Data;
+    document.getElementById('tx-recurrence').value = tx.Recorrência;
+
+    if (tx.Tipo === 'Entrada') {
+        document.getElementById('tx-type-income').checked = true;
+    } else {
+        document.getElementById('tx-type-expense').checked = true;
+    }
+
+    // Altera título do modal e botão
+    document.getElementById('modal-title').innerText = 'Editar Transação';
+    document.getElementById('submit-btn-text').innerText = 'Salvar';
+    
+    const submitIcon = document.getElementById('submit-btn-icon');
+    if (submitIcon) {
+        submitIcon.className = '';
+        submitIcon.setAttribute('data-lucide', 'check');
+    }
+
+    openModal(document.getElementById('transaction-modal'));
+    lucide.createIcons();
+}
+
+async function deleteTransaction(id) {
+    const tx = AppState.transactions.find(t => t.Id === id);
+    if (!tx) return;
+
+    const confirmed = confirm(`Deseja realmente excluir a transação "${tx.Descrição}" no valor de ${formatCurrency(tx.Valor)}?`);
+    if (confirmed) {
+        await deleteTransactionFromSupabase(id);
+    }
+}
+
+// --- DETALHES DE PREVISÃO MENSAL (MODAL) ---
+function showForecastDetails(index) {
+    const p = AppState.forecastProjections[index];
+    if (!p) return;
+
+    document.getElementById('fd-title').innerText = `Detalhamento — ${p.monthLabel}`;
+    
+    // Constrói itens de Receita
+    let incomeItemsHtml = `
+        <div class="fd-item">
+            <span class="name"><i data-lucide="arrow-down-left"></i> Fixas / Recorrentes</span>
+            <span class="val">${formatCurrency(p.details.recorrenteEntrada)}</span>
+        </div>
+        <div class="fd-item">
+            <span class="name"><i data-lucide="plus-circle"></i> Variáveis Estimadas (Média)</span>
+            <span class="val">${formatCurrency(p.details.mediaVariavelEntrada)}</span>
+        </div>
+    `;
+    
+    if (p.details.avulsoEntrada > 0) {
+        incomeItemsHtml += `
+            <div class="fd-item">
+                <span class="name"><i data-lucide="sparkles"></i> Planejados Avulsos</span>
+                <span class="val">${formatCurrency(p.details.avulsoEntrada)}</span>
+            </div>
+        `;
+    }
+
+    // Constrói itens de Despesa
+    let expenseItemsHtml = `
+        <div class="fd-item">
+            <span class="name"><i data-lucide="arrow-up-right"></i> Fixas / Recorrentes</span>
+            <span class="val">${formatCurrency(p.details.recorrenteSaida)}</span>
+        </div>
+        <div class="fd-item">
+            <span class="name"><i data-lucide="minus-circle"></i> Variáveis Estimadas (+Ajuste)</span>
+            <span class="val">${formatCurrency(p.details.mediaVariavelSaida)}</span>
+        </div>
+    `;
+
+    if (p.details.avulsoSaida > 0) {
+        expenseItemsHtml += `
+            <div class="fd-item">
+                <span class="name"><i data-lucide="alert-circle"></i> Planejados Avulsos</span>
+                <span class="val">${formatCurrency(p.details.avulsoSaida)}</span>
+            </div>
+        `;
+    }
+
+    // Listagem de eventos avulsos específicos
+    let eventsHtml = '';
+    if (p.details.eventos && p.details.eventos.length > 0) {
+        eventsHtml = `
+            <div class="fd-section">
+                <h4 class="fd-section-title">Eventos Avulsos do Mês</h4>
+                <ul class="fd-list">
+        `;
+        
+        p.details.eventos.forEach(ev => {
+            const evSign = ev.type === 'Entrada' ? '+' : '-';
+            const evClass = ev.type === 'Entrada' ? 'val text-success' : 'val text-danger';
+            eventsHtml += `
+                <li class="fd-item">
+                    <span class="name"><i data-lucide="calendar-check"></i> ${ev.description}</span>
+                    <span class="${evClass}">${evSign} ${formatCurrency(ev.amount)}</span>
+                </li>
+            `;
+        });
+        
+        eventsHtml += `
+                </ul>
+            </div>
+        `;
+    }
+
+    const netClass = p.net >= 0 ? 'value positive' : 'value negative';
+    const balanceClass = p.balance >= 0 ? 'value positive' : 'value negative';
+    const netSign = p.net >= 0 ? '+' : '';
+
+    const html = `
+        <div class="fd-section">
+            <h4 class="fd-section-title income">Receitas Previstas <span class="val">${formatCurrency(p.income)}</span></h4>
+            <div class="fd-list">
+                ${incomeItemsHtml}
+            </div>
+        </div>
+        
+        <div class="fd-section">
+            <h4 class="fd-section-title expense">Despesas Previstas <span class="val">${formatCurrency(p.expense)}</span></h4>
+            <div class="fd-list">
+                ${expenseItemsHtml}
+            </div>
+        </div>
+        
+        ${eventsHtml}
+        
+        <div class="fd-section">
+            <div class="fd-summary-box">
+                <div class="fd-summary-item">
+                    <span class="label">Fluxo do Mês</span>
+                    <span class="${netClass}">${netSign}${formatCurrency(p.net)}</span>
+                </div>
+                <div class="fd-summary-item">
+                    <span class="label">Saldo Final Acumulado</span>
+                    <span class="${balanceClass}">${formatCurrency(p.balance)}</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('fd-body').innerHTML = html;
+    openModal(document.getElementById('forecast-details-modal'));
+    lucide.createIcons();
+}
+
+// --- MOTOR DE PREVISÕES FINANCEIRAS (FORECAST) ---
+function calculateForecastAndRender() {
+    const historyMonthsCount = parseInt(document.getElementById('forecast-history-months').value) || 6;
+    const growthRate = parseFloat(document.getElementById('forecast-growth-rate').value) / 100 || 0;
+
+    const today = new Date();
+    const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    console.log("calculateForecastAndRender -> currentYearMonth (local):", currentYearMonth);
+
+    let currentTotalBalance = 0;
+    AppState.transactions.forEach(t => {
+        const tYearMonth = t.Data.substring(0, 7);
+        if (tYearMonth <= currentYearMonth) {
+            if (t.Tipo === 'Entrada') currentTotalBalance += t.Valor;
+            else currentTotalBalance -= t.Valor;
+        }
+    });
+
+    const historyMonths = [];
+    for (let i = 1; i <= historyMonthsCount; i++) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        historyMonths.push(d.toISOString().substring(0, 7));
+    }
+
+    let totalHistVarIncome = 0;
+    let totalHistVarExpense = 0;
+
+    AppState.transactions.forEach(t => {
+        const tMonth = t.Data.substring(0, 7);
+        if (historyMonths.includes(tMonth) && t.Recorrência === 'Única') {
+            if (t.Tipo === 'Entrada') totalHistVarIncome += t.Valor;
+            else totalHistVarExpense += t.Valor;
+        }
+    });
+
+    const avgVarIncome = totalHistVarIncome / historyMonthsCount;
+    const avgVarExpense = totalHistVarExpense / historyMonthsCount;
+
+    const recurringTransactions = AppState.transactions.filter(t => t.Recorrência !== 'Única');
+
+    const projections = [];
+    let runningBalance = currentTotalBalance;
+    let positiveMonthsCount = 0;
+    let totalMargins = 0;
+
+    for (let m = 1; m <= 12; m++) {
+        const projDate = new Date(today.getFullYear(), today.getMonth() + m, 1);
+        const projYearMonth = projDate.toISOString().substring(0, 7);
+
+        let monthlyRecurIncome = 0;
+        recurringTransactions.forEach(t => {
+            const tYearMonth = t.Data.substring(0, 7);
+            if (tYearMonth <= projYearMonth && t.Tipo === 'Entrada') {
+                if (t.Recorrência === 'Mensal') {
+                    monthlyRecurIncome += t.Valor;
+                } else if (t.Recorrência === 'Anual') {
+                    const tMonthStr = t.Data.substring(5, 7);
+                    const projMonthStr = projYearMonth.substring(5, 7);
+                    if (tMonthStr === projMonthStr) monthlyRecurIncome += t.Valor;
+                }
+            }
+        });
+
+        let monthlyRecurExpense = 0;
+        recurringTransactions.forEach(t => {
+            const tYearMonth = t.Data.substring(0, 7);
+            if (tYearMonth <= projYearMonth && t.Tipo === 'Saída') {
+                if (t.Recorrência === 'Mensal') {
+                    monthlyRecurExpense += t.Valor;
+                } else if (t.Recorrência === 'Anual') {
+                    const tMonthStr = t.Data.substring(5, 7);
+                    const projMonthStr = projYearMonth.substring(5, 7);
+                    if (tMonthStr === projMonthStr) monthlyRecurExpense += t.Valor;
+                }
+            }
+        });
+
+        const inflatedVarExpense = avgVarExpense * Math.pow(1 + growthRate, m);
+
+        let customEventsIncome = 0;
+        let customEventsExpense = 0;
+        const customEventsThisMonth = [];
+
+        AppState.forecastEvents.forEach(e => {
+            if (e.date === projYearMonth) {
+                if (e.type === 'Entrada') customEventsIncome += e.amount;
+                else customEventsExpense += e.amount;
+                customEventsThisMonth.push(e);
+            }
+        });
+
+        let realFutureIncome = 0;
+        let realFutureExpense = 0;
+        AppState.transactions.forEach(t => {
+            const tYearMonth = t.Data.substring(0, 7);
+            if (tYearMonth === projYearMonth && t.Recorrência === 'Única') {
+                if (t.Tipo === 'Entrada') realFutureIncome += t.Valor;
+                else realFutureExpense += t.Valor;
+                
+                customEventsThisMonth.push({
+                    description: `[Agendado] ${t.Descrição}`,
+                    amount: t.Valor,
+                    type: t.Tipo,
+                    date: tYearMonth
+                });
+            }
+        });
+
+        const projectedIncome = monthlyRecurIncome + avgVarIncome + customEventsIncome + realFutureIncome;
+        const projectedExpense = monthlyRecurExpense + inflatedVarExpense + customEventsExpense + realFutureExpense;
+        const netFlow = projectedIncome - projectedExpense;
+
+        runningBalance += netFlow;
+
+        if (netFlow > 0) positiveMonthsCount++;
+        totalMargins += netFlow;
+
+        const monthName = projDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        const formattedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+
+        projections.push({
+            monthKey: projYearMonth,
+            monthLabel: formattedMonth,
+            income: projectedIncome,
+            expense: projectedExpense,
+            net: netFlow,
+            balance: runningBalance,
+            details: {
+                recorrenteEntrada: monthlyRecurIncome,
+                recorrenteSaida: monthlyRecurExpense,
+                mediaVariavelEntrada: avgVarIncome,
+                mediaVariavelSaida: inflatedVarExpense,
+                avulsoEntrada: customEventsIncome + realFutureIncome,
+                avulsoSaida: customEventsExpense + realFutureExpense,
+                eventos: customEventsThisMonth
+            }
+        });
+    }
+
+    const finalProjectedBalance = projections[11].balance;
+    document.getElementById('metric-forecast').innerText = formatCurrency(finalProjectedBalance);
+    
+    const forecastTrendEl = document.getElementById('forecast-trend');
+    if (finalProjectedBalance >= currentTotalBalance) {
+        forecastTrendEl.className = 'trend positive';
+        forecastTrendEl.innerHTML = `<i data-lucide="sparkles"></i> Estimado crescimento`;
+    } else {
+        forecastTrendEl.className = 'trend negative';
+        forecastTrendEl.innerHTML = `<i data-lucide="trending-down"></i> Estimada queda`;
+    }
+
+    const avgMargin = totalMargins / 12;
+    const avgMarginEl = document.getElementById('forecast-avg-margin');
+    avgMarginEl.innerText = formatCurrency(avgMargin);
+    if (avgMargin < 0) {
+        avgMarginEl.className = 'stat-value text-danger';
+    } else {
+        avgMarginEl.className = 'stat-value text-success';
+    }
+    
+    document.getElementById('forecast-positive-months').innerText = `${positiveMonthsCount} / 12`;
+
+    renderForecastMatrix(projections);
+    AppState.forecastProjections = projections;
+    renderForecastEventsList();
+    lucide.createIcons();
+}
+
+function renderForecastMatrix(projections) {
+    const container = document.getElementById('forecast-matrix-list');
+    container.innerHTML = '';
+
+    projections.forEach((p, idx) => {
+        const row = document.createElement('tr');
+        
+        const netClass = p.net >= 0 ? 'val-net positive' : 'val-net negative';
+        const balClass = p.balance >= 0 ? 'val-proj positive' : 'val-proj negative';
+        const signNet = p.net >= 0 ? '+' : '';
+
+        const titleDetails = `Recorrentes: In R$ ${p.details.recorrenteEntrada.toFixed(0)} / Out R$ ${p.details.recorrenteSaida.toFixed(0)}&#13;Variáveis (médias): In R$ ${p.details.mediaVariavelEntrada.toFixed(0)} / Out R$ ${p.details.mediaVariavelSaida.toFixed(0)}&#13;Planejados: In R$ ${p.details.avulsoEntrada.toFixed(0)} / Out R$ ${p.details.avulsoSaida.toFixed(0)}`;
+
+        row.innerHTML = `
+            <td style="font-weight: 600;">${p.monthLabel}</td>
+            <td class="tx-val income">${formatCurrency(p.income)}</td>
+            <td class="tx-val expense">${formatCurrency(p.expense)}</td>
+            <td class="${netClass} text-right">${signNet} ${formatCurrency(p.net)}</td>
+            <td class="${balClass} text-right">${formatCurrency(p.balance)}</td>
+            <td>
+                <button class="btn-details" title="${titleDetails}">
+                    <i data-lucide="info"></i> Detalhes
+                </button>
+            </td>
+        `;
+        
+        row.querySelector('.btn-details').addEventListener('click', () => showForecastDetails(idx));
+        container.appendChild(row);
+    });
+
+    lucide.createIcons();
+}
+
+function renderForecastEventsList() {
+    const list = document.getElementById('forecast-events-list');
+    const emptyText = document.getElementById('empty-forecast-events');
+    list.innerHTML = '';
+
+    AppState.forecastEvents.sort((a, b) => a.date.localeCompare(b.date));
+
+    if (AppState.forecastEvents.length === 0) {
+        emptyText.style.display = 'block';
+        return;
+    }
+
+    emptyText.style.display = 'none';
+
+    AppState.forecastEvents.forEach((e, idx) => {
+        const li = document.createElement('li');
+        li.className = 'forecast-event-item';
+        
+        const [year, month] = e.date.split('-');
+        const dateObj = new Date(year, parseInt(month) - 1, 1);
+        const formattedDate = dateObj.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        
+        const valClass = e.type === 'Entrada' ? 'fe-val income' : 'fe-val expense';
+        const sign = e.type === 'Entrada' ? '+' : '-';
+
+        li.innerHTML = `
+            <div class="fe-info">
+                <span class="fe-name">${e.description}</span>
+                <span class="fe-meta">${formattedDate.toUpperCase()} • ${e.type}</span>
+            </div>
+            <div class="fe-value-group">
+                <span class="${valClass}">${sign} ${formatCurrency(e.amount)}</span>
+                <button class="btn-delete-event" data-index="${idx}" title="Excluir evento">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            </div>
+        `;
+
+        li.querySelector('.btn-delete-event').addEventListener('click', () => {
+            deleteForecastEvent(idx);
+        });
+
+        list.appendChild(li);
+    });
+
+    lucide.createIcons();
+}
+
+async function handleForecastEventSubmit(e) {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const amount = parseFloat(formData.get('amount'));
+    if (isNaN(amount) || amount <= 0) {
+        showToast('Por favor, informe um valor maior que zero.', 'warning');
+        return;
+    }
+
+    const event = {
+        description: formData.get('description'),
+        amount: amount,
+        type: formData.get('type'),
+        date: formData.get('date')
+    };
+
+    if (AppState.isDemoMode) {
+        AppState.forecastEvents.push(event);
+        localStorage.setItem('finvue_demo_forecast_events', JSON.stringify(AppState.forecastEvents));
+        closeModal(document.getElementById('forecast-event-modal'));
+        showToast('Evento planejado adicionado (Modo Simulação)!', 'success');
+        calculateForecastAndRender();
+        renderDashboardCharts();
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/forecast-events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(event)
+        });
+
+        if (!res.ok) throw new Error('Erro ao salvar evento no servidor.');
+
+        closeModal(document.getElementById('forecast-event-modal'));
+        showToast('Evento planejado adicionado à previsão!', 'success');
+        await loadDataFromServer();
+    } catch (error) {
+        console.error(error);
+        showToast('Erro ao salvar evento planejado no servidor.', 'error');
+    }
+}
+
+async function deleteForecastEvent(index) {
+    const event = AppState.forecastEvents[index];
+
+    if (AppState.isDemoMode) {
+        AppState.forecastEvents.splice(index, 1);
+        localStorage.setItem('finvue_demo_forecast_events', JSON.stringify(AppState.forecastEvents));
+        showToast('Evento planejado excluído.', 'info');
+        calculateForecastAndRender();
+        renderDashboardCharts();
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/forecast-events/${event.id}`, {
+            method: 'DELETE'
+        });
+
+        if (!res.ok) throw new Error('Erro ao excluir no servidor.');
+
+        showToast('Evento planejado excluído.', 'info');
+        await loadDataFromServer();
+    } catch (error) {
+        console.error(error);
+        showToast('Erro ao excluir evento do servidor.', 'error');
+    }
+}
+
+// --- GRÁFICOS DO CHART.JS ---
+function renderDashboardCharts() {
+    const isDashboardActive = document.getElementById('dashboard').classList.contains('active');
+    if (!isDashboardActive) return;
+
+    renderBalanceEvolutionChart();
+    renderExpensesCategoryChart();
+}
+
+function renderBalanceEvolutionChart() {
+    const ctx = document.getElementById('balanceChart').getContext('2d');
+    
+    if (AppState.balanceChart) {
+        AppState.balanceChart.destroy();
+    }
+
+    const historyMap = new Map();
+    const sortedChronological = [...AppState.transactions].reverse();
+
+    let accumBalance = 0;
+    
+    const today = new Date();
+    const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+    const historicalMonthsSet = new Set();
+    sortedChronological.forEach(t => {
+        const m = t.Data.substring(0, 7);
+        if (m <= currentYearMonth) {
+            historicalMonthsSet.add(m);
+        }
+    });
+
+    const historicalMonths = Array.from(historicalMonthsSet).sort();
+    
+    historicalMonths.forEach(month => {
+        const monthTransactions = AppState.transactions.filter(t => t.Data.startsWith(month));
+        
+        let monthNet = 0;
+        monthTransactions.forEach(t => {
+            if (t.Tipo === 'Entrada') monthNet += t.Valor;
+            else monthNet -= t.Valor;
+        });
+        
+        accumBalance += monthNet;
+        historyMap.set(month, accumBalance);
+    });
+
+    const forecasts = AppState.forecastProjections || [];
+
+    const labels = [];
+    const historyData = [];
+    const projectionData = [];
+
+    historicalMonths.forEach(m => {
+        const [year, month] = m.split('-');
+        const d = new Date(year, parseInt(month) - 1, 1);
+        labels.push(d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }));
+        historyData.push(historyMap.get(m));
+        projectionData.push(null);
+    });
+
+    const connectionBalance = accumBalance;
+    if (historyData.length > 0) {
+        projectionData[projectionData.length - 1] = connectionBalance;
+    }
+
+    forecasts.forEach(f => {
+        const [year, month] = f.monthKey.split('-');
+        const d = new Date(year, parseInt(month) - 1, 1);
+        labels.push(d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }));
+        historyData.push(null);
+        projectionData.push(f.balance);
+    });
+
+    const histGradient = ctx.createLinearGradient(0, 0, 0, 300);
+    histGradient.addColorStop(0, 'rgba(99, 102, 241, 0.25)');
+    histGradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+    const projGradient = ctx.createLinearGradient(0, 0, 0, 300);
+    projGradient.addColorStop(0, 'rgba(245, 158, 11, 0.18)');
+    projGradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+
+    AppState.balanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Histórico Real',
+                    data: historyData,
+                    borderColor: '#6366f1',
+                    borderWidth: 3,
+                    backgroundColor: histGradient,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#6366f1',
+                    pointBorderColor: 'rgba(255,255,255,0.8)',
+                    pointHoverRadius: 6,
+                    spanGaps: false
+                },
+                {
+                    label: 'Projeção Futura',
+                    data: projectionData,
+                    borderColor: '#f59e0b',
+                    borderWidth: 3,
+                    borderDash: [6, 6],
+                    backgroundColor: projGradient,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#f59e0b',
+                    pointBorderColor: 'rgba(255,255,255,0.8)',
+                    pointHoverRadius: 6,
+                    spanGaps: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: '#1e293b',
+                    titleColor: '#ffffff',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    borderWidth: 1,
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) label += formatCurrency(context.parsed.y);
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                    ticks: {
+                        color: '#9ca3af',
+                        font: { family: 'Inter', size: 11 },
+                        callback: value => 'R$ ' + value.toLocaleString('pt-BR')
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#9ca3af', font: { family: 'Inter', size: 10 } }
+                }
+            }
+        }
+    });
+}
+
+function renderExpensesCategoryChart() {
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+
+    if (AppState.categoryChart) {
+        AppState.categoryChart.destroy();
+    }
+
+    const now = new Date();
+    const currentYearMonth = now.toISOString().substring(0, 7);
+
+    const categoriesTotals = {};
+    let totalExpensesThisMonth = 0;
+
+    AppState.transactions.forEach(t => {
+        const tMonth = t.Data.substring(0, 7);
+        if (tMonth === currentYearMonth && t.Tipo === 'Saída') {
+            categoriesTotals[t.Categoria] = (categoriesTotals[t.Categoria] || 0) + t.Valor;
+            totalExpensesThisMonth += t.Valor;
+        }
+    });
+
+    const labels = Object.keys(categoriesTotals);
+    const data = Object.values(categoriesTotals);
+
+    if (labels.length === 0) {
+        AppState.categoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Nenhum gasto registrado'],
+                datasets: [{
+                    data: [1],
+                    backgroundColor: ['rgba(255, 255, 255, 0.05)'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+        return;
+    }
+
+    const categoryColors = {
+        "Alimentação": "#fb7185",
+        "Transporte": "#fb923c",
+        "Moradia": "#60a5fa",
+        "Lazer": "#c084fc",
+        "Saúde": "#34d399",
+        "Educação": "#22d3ee",
+        "Investimentos": "#a3e635",
+        "Salário": "#34d399",
+        "Outros": "#9ca3af"
+    };
+
+    const colors = labels.map(label => categoryColors[label] || categoryColors["Outros"]);
+
+    AppState.categoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors,
+                borderWidth: 2,
+                borderColor: '#111726',
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#9ca3af',
+                        font: { family: 'Inter', size: 10 },
+                        padding: 12,
+                        boxWidth: 8,
+                        boxHeight: 8,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#ffffff',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.parsed;
+                            const pct = ((val / totalExpensesThisMonth) * 100).toFixed(0) + '%';
+                            return ` ${context.label}: ${formatCurrency(val)} (${pct})`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// --- CONFIGURAÇÕES DE REDE (INFO) ---
+// O status do banco é atualizado automaticamente a partir do servidor
+
+// --- AUXILIARES E FORMATAÇÕES ---
+function formatCurrency(value) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
+
+function formatDateBR(dateStr) {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+}
+
+function getCategoryIcon(category) {
+    const icons = {
+        "Alimentação": "shopping-bag",
+        "Transporte": "car",
+        "Moradia": "home",
+        "Lazer": "tv",
+        "Saúde": "heart-pulse",
+        "Educação": "book-open",
+        "Salário": "banknote",
+        "Investimentos": "line-chart",
+        "Outros": "help-circle"
+    };
+    return icons[category] || "help-circle";
+}
+
+// --- TOAST NOTIFICATIONS HELPER ---
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    let iconName = 'info';
+    if (type === 'success') iconName = 'check-circle';
+    if (type === 'error') iconName = 'alert-triangle';
+    if (type === 'warning') iconName = 'alert-circle';
+
+    toast.innerHTML = `
+        <i data-lucide="${iconName}"></i>
+        <div class="toast-message">${message}</div>
+        <button class="toast-close"><i data-lucide="x"></i></button>
+    `;
+
+    container.appendChild(toast);
+    lucide.createIcons();
+
+    toast.querySelector('.toast-close').addEventListener('click', () => {
+        removeToast(toast);
+    });
+
+    setTimeout(() => {
+        removeToast(toast);
+    }, 4500);
+}
+
+function removeToast(toastEl) {
+    if (toastEl.parentNode) {
+        toastEl.classList.add('removing');
+        toastEl.addEventListener('transitionend', () => {
+            toastEl.remove();
+        });
+    }
+}
