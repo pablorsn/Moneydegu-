@@ -12,10 +12,17 @@ if (!connectionString) {
   console.warn("AVISO: A variável de ambiente DATABASE_URL não está configurada.");
 }
 
+const isLocal = connectionString && (
+  connectionString.includes('localhost') || 
+  connectionString.includes('127.0.0.1') || 
+  connectionString.includes('@db:')
+);
+
+const useSsl = process.env.NODE_ENV === 'production' && !isLocal && process.env.DB_SSL !== 'false';
+
 const pool = new Pool({
   connectionString,
-  // Se for conectar ao banco de dados externo do Supabase ou similar que necessite SSL
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: useSsl ? { rejectUnauthorized: false } : false
 });
 
 export async function initDb() {
