@@ -143,7 +143,7 @@ async function checkSetupStatus() {
         // Reset form inputs display and requirements
         const loginForm = document.getElementById('login-form');
         if (loginForm) {
-            loginForm.querySelectorAll('.form-group').forEach(el => el.style.display = 'block');
+            loginForm.querySelectorAll('.form-group').forEach(el => el.style.display = '');
         }
         const usernameInput = document.getElementById('login-username');
         const passwordInput = document.getElementById('login-password');
