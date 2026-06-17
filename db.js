@@ -111,6 +111,16 @@ export async function initDb() {
       ALTER TABLE forecast_events ADD COLUMN IF NOT EXISTS usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE;
     `);
 
+    // Atualizar restrição check para aceitar 'Parcelado'
+    try {
+      await client.query(`
+        ALTER TABLE transacoes DROP CONSTRAINT IF EXISTS transacoes_recorrencia_check;
+        ALTER TABLE transacoes ADD CONSTRAINT transacoes_recorrencia_check CHECK (recorrencia IN ('Única', 'Mensal', 'Anual', 'Parcelado'));
+      `);
+    } catch (err) {
+      console.warn("Aviso ao atualizar restrição de recorrência:", err.message);
+    }
+
     console.log("Banco de dados verificado e pronto para uso.");
     return true;
   } catch (error) {

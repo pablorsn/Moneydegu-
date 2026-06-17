@@ -14,6 +14,15 @@ async function apiFetch(url, options = {}) {
     return fetch(url, { ...options, headers });
 }
 
+function addMonths(dateStr, months) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1 + months, 1);
+    const maxDay = new Date(year, month + months, 0).getDate();
+    const targetDay = Math.min(day, maxDay);
+    date.setDate(targetDay);
+    return date.toISOString().split('T')[0];
+}
+
 // --- ESTADO GLOBAL DA APLICAÇÃO ---
 const AppState = {
     user: null,
@@ -324,6 +333,24 @@ function setupEventListeners() {
             customCategoryInput.value = '';
         }
     });
+
+    // Evento de Recorrência Parcelada
+    const txRecurrenceSelect = document.getElementById('tx-recurrence');
+    const installmentsGroup = document.getElementById('tx-installments-group');
+    const installmentsInput = document.getElementById('tx-installments');
+
+    if (txRecurrenceSelect && installmentsGroup && installmentsInput) {
+        txRecurrenceSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'Parcelado') {
+                installmentsGroup.style.display = 'flex';
+                installmentsInput.required = true;
+                installmentsInput.focus();
+            } else {
+                installmentsGroup.style.display = 'none';
+                installmentsInput.required = false;
+            }
+        });
+    }
 
     // 4. Filtros da Tabela de Transações
     document.getElementById('filter-search').addEventListener('input', applyFilters);
@@ -975,6 +1002,13 @@ function closeModal(modalEl) {
         form.reset();
         const dateInput = form.querySelector('input[type="date"]');
         if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+
+        if (form.id === 'transaction-form') {
+            const customCategoryGroup = document.getElementById('tx-custom-category-group');
+            if (customCategoryGroup) customCategoryGroup.style.display = 'none';
+            const installmentsGroup = document.getElementById('tx-installments-group');
+            if (installmentsGroup) installmentsGroup.style.display = 'none';
+        }
     }
 }
 
@@ -1126,6 +1160,35 @@ async function addTransactionToSupabase(transaction) {
     } catch (error) {
         console.error('Erro ao salvar:', error);
         showToast('Erro ao salvar no servidor.', 'error');
+        return false;
+    }
+}
+
+async function addTransactionToSupabaseSilent(transaction) {
+    if (AppState.isDemoMode) {
+        AppState.transactions.unshift(transaction);
+        localStorage.setItem('finvue_demo_transactions', JSON.stringify(AppState.transactions));
+        return true;
+    }
+
+    try {
+        const res = await apiFetch('/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                data: transaction.Data,
+                descricao: transaction.Descrição,
+                categoria: transaction.Categoria,
+                valor: transaction.Valor,
+                tipo: transaction.Tipo,
+                recorrencia: transaction.Recorrência
+            })
+        });
+
+        if (!res.ok) throw new Error('Falha ao gravar no servidor.');
+        return true;
+    } catch (error) {
+        console.error('Erro ao salvar silenciosamente:', error);
         return false;
     }
 }
@@ -1471,15 +1534,7 @@ async function handleTransactionSubmit(e) {
         }
     }
 
-    const tx = {
-        Data: formData.get('Data'),
-        Descrição: formData.get('Descrição'),
-        Categoria: category,
-        Valor: amount,
-        Tipo: formData.get('Tipo'),
-        Recorrência: formData.get('Recorrência')
-    };
-
+    const recurrence = formData.get('Recorrência');
     const submitBtn = document.getElementById('btn-submit-tx');
     const oldText = document.getElementById('submit-btn-text').innerText;
     document.getElementById('submit-btn-text').innerText = 'Gravando...';
@@ -1488,14 +1543,86 @@ async function handleTransactionSubmit(e) {
     try {
         let success = false;
         if (txId) {
-            tx.Id = AppState.isDemoMode ? parseInt(txId) : (isNaN(txId) ? txId : parseInt(txId));
+            const tx = {
+                Id: AppState.isDemoMode ? parseInt(txId) : (isNaN(txId) ? txId : parseInt(txId)),
+                Data: formData.get('Data'),
+                Descrição: formData.get('Descrição'),
+                Categoria: category,
+                Valor: amount,
+                Tipo: formData.get('Tipo'),
+                Recorrência: recurrence
+            };
             success = await updateTransactionInSupabase(tx);
         } else {
-            if (AppState.isDemoMode) {
-                const nextId = AppState.transactions.length > 0 ? Math.min(...AppState.transactions.map(t => t.Id)) - 1 : -1;
-                tx.Id = nextId;
+            if (recurrence === 'Parcelado') {
+                const N = parseInt(document.getElementById('tx-installments').value) || 2;
+                if (N < 2) {
+                    showToast('A quantidade de parcelas deve ser pelo menos 2.', 'warning');
+                    throw new Error('Número de parcelas inválido');
+                }
+                const baseDate = formData.get('Data');
+                const baseDesc = formData.get('Descrição');
+                const valTotal = amount;
+                
+                const baseVal = parseFloat((valTotal / N).toFixed(2));
+                const diff = parseFloat((valTotal - (baseVal * N)).toFixed(2));
+
+                let allSuccess = true;
+                for (let i = 1; i <= N; i++) {
+                    const installmentDate = addMonths(baseDate, i - 1);
+                    const installmentDesc = `${baseDesc} (${String(i).padStart(2, '0')}/${String(N).padStart(2, '0')})`;
+                    const installmentVal = (i === 1) ? parseFloat((baseVal + diff).toFixed(2)) : baseVal;
+
+                    const tx = {
+                        Data: installmentDate,
+                        Descrição: installmentDesc,
+                        Categoria: category,
+                        Valor: installmentVal,
+                        Tipo: formData.get('Tipo'),
+                        Recorrência: 'Parcelado'
+                    };
+
+                    if (AppState.isDemoMode) {
+                        const nextId = AppState.transactions.length > 0 ? Math.min(...AppState.transactions.map(t => t.Id)) - 1 : -1;
+                        tx.Id = nextId;
+                    }
+                    const singleSuccess = await addTransactionToSupabaseSilent(tx);
+                    if (!singleSuccess) {
+                        allSuccess = false;
+                    }
+                }
+
+                if (allSuccess) {
+                    showToast(`${N} parcelas gravadas com sucesso!`, 'success');
+                    if (!AppState.isDemoMode) {
+                        await loadDataFromServer();
+                    } else {
+                        processAndRefreshUI();
+                    }
+                    success = true;
+                } else {
+                    showToast('Algumas parcelas falharam ao ser gravadas.', 'warning');
+                    if (!AppState.isDemoMode) {
+                        await loadDataFromServer();
+                    } else {
+                        processAndRefreshUI();
+                    }
+                }
+            } else {
+                const tx = {
+                    Data: formData.get('Data'),
+                    Descrição: formData.get('Descrição'),
+                    Categoria: category,
+                    Valor: amount,
+                    Tipo: formData.get('Tipo'),
+                    Recorrência: recurrence
+                };
+                if (AppState.isDemoMode) {
+                    const nextId = AppState.transactions.length > 0 ? Math.min(...AppState.transactions.map(t => t.Id)) - 1 : -1;
+                    tx.Id = nextId;
+                }
+                success = await addTransactionToSupabase(tx);
             }
-            success = await addTransactionToSupabase(tx);
         }
 
         if (success) {
@@ -1538,6 +1665,10 @@ function editTransaction(id) {
     
     document.getElementById('tx-date').value = tx.Data;
     document.getElementById('tx-recurrence').value = tx.Recorrência;
+
+    // Ocultar campo de parcelas ao editar
+    const installmentsGroup = document.getElementById('tx-installments-group');
+    if (installmentsGroup) installmentsGroup.style.display = 'none';
 
     if (tx.Tipo === 'Entrada') {
         document.getElementById('tx-type-income').checked = true;

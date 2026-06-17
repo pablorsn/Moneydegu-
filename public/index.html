@@ -606,8 +606,15 @@ DATABASE_URL=postgresql://[usuario]:[senha]@[host]:[porta]/[banco]</pre>
                             <option value="Única" selected>Transação Única</option>
                             <option value="Mensal">Mensal (Fixo/Recorrente)</option>
                             <option value="Anual">Anual (IPVA, Seguros, etc.)</option>
+                            <option value="Parcelado">Parcelado Crédito</option>
                         </select>
                         <span class="input-tip">Transações recorrentes aparecem automaticamente nas projeções dos meses seguintes.</span>
+                    </div>
+
+                    <div class="form-group" id="tx-installments-group" style="display: none; margin-top: 16px;">
+                        <label for="tx-installments">Quantidade de Parcelas</label>
+                        <input type="number" id="tx-installments" class="form-control" min="2" max="120" value="2">
+                        <span class="input-tip">O valor total informado será dividido igualmente entre as parcelas mensais.</span>
                     </div>
                 </div>
                 <div class="modal-footer">
