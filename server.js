@@ -103,7 +103,7 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     // Verificar se é o primeiro usuário cadastrado
     const countRes = await pool.query('SELECT COUNT(*) FROM usuarios');
-    const isFirstUser = parseInt(countRes[0].count) === 0;
+    const isFirstUser = parseInt(countRes.rows[0].count) === 0;
 
     // Se não for o primeiro usuário, verificar se usuário já existe
     if (!isFirstUser) {
