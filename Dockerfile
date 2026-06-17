@@ -26,10 +26,10 @@ COPY --from=builder /usr/src/app/server.js ./server.js
 COPY --from=builder /usr/src/app/db.js ./db.js
 
 # Expor a porta que a aplicação rodará
-EXPOSE 3000
+EXPOSE 3001
 
 # Variáveis de ambiente padrão
-ENV PORT=3000
+ENV PORT=3001
 ENV NODE_ENV=production
 
 # Comando para rodar a aplicação

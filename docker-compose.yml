@@ -19,10 +19,11 @@ services:
     container_name: dinheiro_web
     restart: always
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       - DATABASE_URL=postgresql://dinheiro_user:dinheiro_password@db:5432/dinheiro_db
       - NODE_ENV=development
+      - PORT=3001
     depends_on:
       - db
 
