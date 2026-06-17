@@ -1503,6 +1503,33 @@ select {
     .modal-footer {
         padding: 12px 20px;
     }
+
+    /* Responsive Transaction Tables: Show only Descrição, Valor, and Ações on mobile */
+    .recent-transactions-card th:nth-child(1),
+    .recent-transactions-card td:nth-child(1),
+    .recent-transactions-card th:nth-child(3),
+    .recent-transactions-card td:nth-child(3),
+    .recent-transactions-card th:nth-child(4),
+    .recent-transactions-card td:nth-child(4) {
+        display: none;
+    }
+    
+    #all-transactions-table th:nth-child(1),
+    #all-transactions-table td:nth-child(1),
+    #all-transactions-table th:nth-child(3),
+    #all-transactions-table td:nth-child(3),
+    #all-transactions-table th:nth-child(4),
+    #all-transactions-table td:nth-child(4),
+    #all-transactions-table th:nth-child(5),
+    #all-transactions-table td:nth-child(5) {
+        display: none;
+    }
+
+    /* Right-align Valor headers on mobile to match value alignment */
+    .recent-transactions-card th:nth-child(5),
+    #all-transactions-table th:nth-child(6) {
+        text-align: right;
+    }
 }
 
 /* ==========================================================================
