@@ -1530,6 +1530,16 @@ select {
     #all-transactions-table th:nth-child(6) {
         text-align: right;
     }
+
+    /* Reduce card and table paddings on mobile to prevent actions clipping */
+    .section-card, .recent-transactions-card {
+        padding: 16px;
+    }
+    
+    .transaction-table th,
+    .transaction-table td {
+        padding: 12px 6px;
+    }
 }
 
 /* ==========================================================================
