@@ -1545,4 +1545,172 @@ input[type="hidden"] {
     color: var(--danger);
 }
 
+/* ==========================================================================
+   TELA DE LOGIN E GERENCIAMENTO DE CONTA (GLASSMORPHISM)
+   ========================================================================= */
+
+.login-screen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #060913;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.login-screen-overlay:not(.active) {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* Esferas luminosas animadas de fundo */
+.login-bg-sphere {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.15;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.sphere-1 {
+    width: 350px;
+    height: 350px;
+    background-color: var(--primary);
+    top: -50px;
+    left: -50px;
+    animation: floatSphere 12s infinite alternate ease-in-out;
+}
+
+.sphere-2 {
+    width: 400px;
+    height: 400px;
+    background-color: #0d9488;
+    bottom: -100px;
+    right: -50px;
+    animation: floatSphere 15s infinite alternate-reverse ease-in-out;
+}
+
+.sphere-3 {
+    width: 280px;
+    height: 280px;
+    background-color: #db2777;
+    top: 40%;
+    right: 25%;
+    animation: floatSphere 10s infinite alternate ease-in-out 2s;
+}
+
+@keyframes floatSphere {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(40px, 30px) scale(1.1); }
+}
+
+/* Card de Login */
+.login-card {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 420px;
+    background: rgba(13, 18, 30, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--border-radius-lg);
+    padding: 40px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.02);
+    animation: loginCardIntro 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes loginCardIntro {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.login-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 30px;
+}
+
+.login-brand h2 {
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.login-brand h2 span {
+    background: linear-gradient(to right, #818cf8, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.login-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.login-header p {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.btn-full {
+    width: 100%;
+    padding: 14px;
+}
+
+.login-footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.login-footer a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    transition: var(--transition-fast);
+}
+
+.login-footer a:hover {
+    color: #818cf8;
+    text-decoration: underline;
+}
+
+/* Gerenciamento de Conta nas Configurações */
+.settings-form {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.settings-form.active {
+    display: block;
+}
+
+.settings-tab-buttons .btn {
+    transition: var(--transition-fast);
+}
+
+.settings-tab-buttons .btn.active {
+    background-color: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
 

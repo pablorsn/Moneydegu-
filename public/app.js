@@ -1,3 +1,19 @@
+// --- AUTHENTICATION HELPERS ---
+const getAuthToken = () => localStorage.getItem('finvue_token');
+const setAuthToken = (token) => {
+    if (token) localStorage.setItem('finvue_token', token);
+    else localStorage.removeItem('finvue_token');
+};
+
+async function apiFetch(url, options = {}) {
+    const token = getAuthToken();
+    const headers = options.headers || {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return fetch(url, { ...options, headers });
+}
+
 // --- ESTADO GLOBAL DA APLICAÇÃO ---
 const AppState = {
     transactions: [],
@@ -85,9 +101,118 @@ function initApp() {
     const feDateEl = document.getElementById('fe-date');
     if (feDateEl) feDateEl.value = currentYearMonth;
 
-    // Carrega dados do Servidor ou inicia Modo Demo de fallback
-    loadDataFromServer();
     checkDatabaseStatus();
+    checkAuthentication();
+}
+
+async function checkAuthentication() {
+    const token = getAuthToken();
+    if (!token) {
+        await checkSetupStatus();
+        return;
+    }
+    
+    try {
+        const res = await apiFetch('/api/auth/me');
+        if (res.ok) {
+            const data = await res.json();
+            showAuthenticatedApp(data.user);
+        } else {
+            setAuthToken(null);
+            await checkSetupStatus();
+        }
+    } catch (error) {
+        console.error('Erro ao validar sessão:', error);
+        const cached = localStorage.getItem('finvue_cached_transactions');
+        if (cached) {
+            showToast('Erro de conexão. Exibindo dados locais offline.', 'warning');
+            showAuthenticatedApp({ username: 'Usuário Offline' });
+        } else {
+            await checkSetupStatus();
+        }
+    }
+}
+
+async function checkSetupStatus() {
+    try {
+        const res = await fetch('/api/auth/setup-status');
+        const data = await res.json();
+        
+        const loginScreen = document.getElementById('login-screen');
+        const appContainer = document.querySelector('.app-container');
+        
+        loginScreen.classList.add('active');
+        appContainer.style.display = 'none';
+        
+        if (data.needsSetup) {
+            document.getElementById('login-title').innerText = 'Primeiro Acesso';
+            document.getElementById('login-subtitle').innerText = 'Crie sua conta de administrador para começar.';
+            document.getElementById('login-btn-text').innerText = 'Cadastrar e Entrar';
+            document.getElementById('login-btn-icon').className = '';
+            document.getElementById('login-btn-icon').setAttribute('data-lucide', 'user-plus');
+            document.getElementById('login-toggle-text').style.display = 'none';
+            document.getElementById('login-form').setAttribute('data-mode', 'setup-register');
+        } else {
+            document.getElementById('login-title').innerText = 'Fazer Login';
+            document.getElementById('login-subtitle').innerText = 'Acesse seu gestor tempo real.';
+            document.getElementById('login-btn-text').innerText = 'Entrar';
+            document.getElementById('login-btn-icon').className = '';
+            document.getElementById('login-btn-icon').setAttribute('data-lucide', 'log-in');
+            document.getElementById('login-toggle-text').style.display = 'block';
+            document.getElementById('login-toggle-text').innerHTML = 'Não tem uma conta? <a href="#" id="link-toggle-register">Cadastre-se</a>';
+            document.getElementById('login-form').setAttribute('data-mode', 'login');
+            
+            const linkToggle = document.getElementById('link-toggle-register');
+            if (linkToggle) linkToggle.addEventListener('click', toggleRegisterLogin);
+        }
+        lucide.createIcons();
+    } catch (error) {
+        console.error('Erro ao verificar setup:', error);
+        enableDemoMode();
+    }
+}
+
+function toggleRegisterLogin(e) {
+    e.preventDefault();
+    const form = document.getElementById('login-form');
+    const mode = form.getAttribute('data-mode');
+    
+    if (mode === 'login') {
+        document.getElementById('login-title').innerText = 'Criar Conta';
+        document.getElementById('login-subtitle').innerText = 'Cadastre-se para gerenciar suas finanças.';
+        document.getElementById('login-btn-text').innerText = 'Cadastrar';
+        document.getElementById('login-btn-icon').className = '';
+        document.getElementById('login-btn-icon').setAttribute('data-lucide', 'user-plus');
+        document.getElementById('login-toggle-text').innerHTML = 'Já tem uma conta? <a href="#" id="link-toggle-login">Faça Login</a>';
+        form.setAttribute('data-mode', 'register');
+        
+        const linkToggle = document.getElementById('link-toggle-login');
+        if (linkToggle) linkToggle.addEventListener('click', toggleRegisterLogin);
+    } else {
+        document.getElementById('login-title').innerText = 'Fazer Login';
+        document.getElementById('login-subtitle').innerText = 'Acesse seu gestor tempo real.';
+        document.getElementById('login-btn-text').innerText = 'Entrar';
+        document.getElementById('login-btn-icon').className = '';
+        document.getElementById('login-btn-icon').setAttribute('data-lucide', 'log-in');
+        document.getElementById('login-toggle-text').innerHTML = 'Não tem uma conta? <a href="#" id="link-toggle-register">Cadastre-se</a>';
+        form.setAttribute('data-mode', 'login');
+        
+        const linkToggle = document.getElementById('link-toggle-register');
+        if (linkToggle) linkToggle.addEventListener('click', toggleRegisterLogin);
+    }
+    lucide.createIcons();
+}
+
+function showAuthenticatedApp(user) {
+    document.getElementById('login-screen').classList.remove('active');
+    document.querySelector('.app-container').style.display = 'flex';
+    
+    const welcomeEl = document.getElementById('welcome-title');
+    if (welcomeEl) {
+        welcomeEl.innerHTML = `Olá, <span>${user.username}</span>!`;
+    }
+    
+    loadDataFromServer();
 }
 
 async function checkDatabaseStatus() {
@@ -230,6 +355,181 @@ function setupEventListeners() {
             renderTransactionsTable();
         }
     });
+
+    // 8. Autenticação e Gerenciamento de Usuários
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) loginForm.addEventListener('submit', handleLoginSubmit);
+
+    const logoutBtn = document.getElementById('nav-logout');
+    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+    const formChangePass = document.getElementById('form-change-password');
+    if (formChangePass) formChangePass.addEventListener('submit', handleChangePasswordSubmit);
+
+    const formRegisterUser = document.getElementById('form-register-user');
+    if (formRegisterUser) formRegisterUser.addEventListener('submit', handleSettingsRegisterSubmit);
+
+    setupSettingsUserTabs();
+}
+
+async function handleLoginSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const mode = form.getAttribute('data-mode');
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+    
+    const submitBtn = document.getElementById('btn-login-submit');
+    const submitBtnText = document.getElementById('login-btn-text');
+    const oldText = submitBtnText.innerText;
+    
+    submitBtnText.innerText = 'Processando...';
+    submitBtn.disabled = true;
+    
+    try {
+        let url = '/api/auth/login';
+        if (mode === 'register' || mode === 'setup-register') {
+            url = '/api/auth/register';
+        }
+        
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            setAuthToken(data.token);
+            showToast(data.message || 'Sucesso!', 'success');
+            showAuthenticatedApp(data.user);
+            form.reset();
+        } else {
+            showToast(data.error || 'Erro na operação.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro de autenticação:', error);
+        showToast('Erro ao se conectar com o servidor.', 'error');
+    } finally {
+        submitBtnText.innerText = oldText;
+        submitBtn.disabled = false;
+        lucide.createIcons();
+    }
+}
+
+async function handleLogout(e) {
+    if (e) e.preventDefault();
+    
+    const token = getAuthToken();
+    if (token) {
+        try {
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (error) {
+            console.error('Erro ao deslogar no servidor:', error);
+        }
+    }
+    
+    setAuthToken(null);
+    showToast('Sessão encerrada com sucesso.', 'info');
+    
+    // Limpar dados do estado
+    AppState.transactions = [];
+    AppState.forecastEvents = [];
+    
+    // Resetar dashboard e tabelas
+    processAndRefreshUI();
+    
+    // Voltar para tela de login
+    await checkSetupStatus();
+}
+
+async function handleChangePasswordSubmit(e) {
+    e.preventDefault();
+    const currentPassword = document.getElementById('change-pass-current').value;
+    const newPassword = document.getElementById('change-pass-new').value;
+    const confirmPassword = document.getElementById('change-pass-confirm').value;
+    
+    if (newPassword !== confirmPassword) {
+        showToast('A nova senha e a confirmação não coincidem.', 'warning');
+        return;
+    }
+    
+    try {
+        const res = await apiFetch('/api/auth/change-password', {
+            method: 'POST',
+            body: { currentPassword, newPassword }
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Senha alterada com sucesso!', 'success');
+            e.target.reset();
+        } else {
+            showToast(data.error || 'Erro ao alterar senha.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao alterar senha:', error);
+        showToast('Erro ao alterar senha no servidor.', 'error');
+    }
+}
+
+async function handleSettingsRegisterSubmit(e) {
+    e.preventDefault();
+    const username = document.getElementById('register-username').value;
+    const password = document.getElementById('register-password').value;
+    const confirm = document.getElementById('register-confirm').value;
+    
+    if (password !== confirm) {
+        showToast('As senhas não coincidem.', 'warning');
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(`Usuário "${username}" cadastrado com sucesso!`, 'success');
+            e.target.reset();
+        } else {
+            showToast(data.error || 'Erro ao cadastrar usuário.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao cadastrar usuário:', error);
+        showToast('Erro ao cadastrar usuário no servidor.', 'error');
+    }
+}
+
+function setupSettingsUserTabs() {
+    const btnChangePass = document.getElementById('btn-tab-change-pass');
+    const btnCreateUser = document.getElementById('btn-tab-create-user');
+    const formChangePass = document.getElementById('form-change-password');
+    const formCreateUser = document.getElementById('form-register-user');
+    
+    if (!btnChangePass || !btnCreateUser || !formChangePass || !formCreateUser) return;
+    
+    btnChangePass.addEventListener('click', () => {
+        btnChangePass.classList.add('active');
+        btnCreateUser.classList.remove('active');
+        formChangePass.classList.add('active');
+        formChangePass.style.display = 'block';
+        formCreateUser.classList.remove('active');
+        formCreateUser.style.display = 'none';
+    });
+    
+    btnCreateUser.addEventListener('click', () => {
+        btnCreateUser.classList.add('active');
+        btnChangePass.classList.remove('active');
+        formCreateUser.classList.add('active');
+        formCreateUser.style.display = 'block';
+        formChangePass.classList.remove('active');
+        formChangePass.style.display = 'none';
+    });
 }
 
 // --- GERENCIAMENTO DE ABAS ---
@@ -339,7 +639,7 @@ async function loadDataFromServer() {
 
     try {
         // 1. Carregar transações do backend
-        const res = await fetch('/api/transactions');
+        const res = await apiFetch('/api/transactions');
         if (!res.ok) throw new Error('Falha ao obter transações do servidor');
         const data = await res.json();
         
@@ -354,7 +654,7 @@ async function loadDataFromServer() {
         }));
 
         // 2. Carregar eventos de previsão do backend
-        const resEvents = await fetch('/api/forecast-events');
+        const resEvents = await apiFetch('/api/forecast-events');
         if (resEvents.ok) {
             const eventsData = await resEvents.json();
             AppState.forecastEvents = eventsData.map(row => ({
@@ -406,7 +706,7 @@ async function addTransactionToSupabase(transaction) {
     }
 
     try {
-        const res = await fetch('/api/transactions', {
+        const res = await apiFetch('/api/transactions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -446,7 +746,7 @@ async function updateTransactionInSupabase(transaction) {
     }
 
     try {
-        const res = await fetch(`/api/transactions/${transaction.Id}`, {
+        const res = await apiFetch(`/api/transactions/${transaction.Id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -482,7 +782,7 @@ async function deleteTransactionFromSupabase(id) {
     }
 
     try {
-        const res = await fetch(`/api/transactions/${id}`, {
+        const res = await apiFetch(`/api/transactions/${id}`, {
             method: 'DELETE'
         });
 
@@ -1262,7 +1562,7 @@ async function handleForecastEventSubmit(e) {
     }
 
     try {
-        const res = await fetch('/api/forecast-events', {
+        const res = await apiFetch('/api/forecast-events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(event)
@@ -1292,7 +1592,7 @@ async function deleteForecastEvent(index) {
     }
 
     try {
-        const res = await fetch(`/api/forecast-events/${event.id}`, {
+        const res = await apiFetch(`/api/forecast-events/${event.id}`, {
             method: 'DELETE'
         });
 

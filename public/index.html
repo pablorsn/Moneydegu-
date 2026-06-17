@@ -17,7 +17,50 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="dark-theme">
-    <div class="app-container">
+    <!-- Glassmorphic Login Screen -->
+    <div id="login-screen" class="login-screen-overlay active">
+        <!-- Background animated elements -->
+        <div class="login-bg-sphere sphere-1"></div>
+        <div class="login-bg-sphere sphere-2"></div>
+        <div class="login-bg-sphere sphere-3"></div>
+        
+        <div class="login-card">
+            <div class="login-brand">
+                <div class="brand-icon">
+                    <i data-lucide="trending-up"></i>
+                </div>
+                <h2>Dinheiro <span>& Futuro</span></h2>
+            </div>
+            
+            <div class="login-header">
+                <h3 id="login-title">Fazer Login</h3>
+                <p id="login-subtitle">Acesse seu gestor financeiro inteligente.</p>
+            </div>
+            
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Usuário</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="Seu usuário..." required>
+                </div>
+                
+                <div class="form-group margin-top">
+                    <label for="login-password">Senha</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="Sua senha..." required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-full margin-top" id="btn-login-submit">
+                    <span id="login-btn-text">Entrar</span>
+                    <i data-lucide="log-in" id="login-btn-icon"></i>
+                </button>
+            </form>
+            
+            <div class="login-footer">
+                <p id="login-toggle-text">Não tem uma conta? <a href="#" id="link-toggle-register">Cadastre-se</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="app-container" style="display: none;">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-brand">
@@ -43,6 +86,10 @@
                 <a href="#settings" class="nav-item" data-tab="settings">
                     <i data-lucide="settings"></i>
                     <span>Configurações</span>
+                </a>
+                <a href="#" class="nav-item text-danger" id="nav-logout" style="margin-top: auto;">
+                    <i data-lucide="log-out"></i>
+                    <span>Sair</span>
                 </a>
             </nav>
 
@@ -368,9 +415,65 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
+                </div>
 
-                    <!-- Coolify Deploy Guide -->
+                <!-- Account & User Management -->
+                <div class="section-card">
+                    <div class="card-header border-bottom">
+                        <h3>Gerenciamento de Conta</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="settings-tabs" style="display: flex; flex-direction: column; gap: 12px;">
+                            <!-- Tab buttons -->
+                            <div class="settings-tab-buttons" style="display: flex; gap: 8px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
+                                <button type="button" class="btn btn-secondary active" id="btn-tab-change-pass" style="font-size: 12px; padding: 6px 12px;">Alterar Senha</button>
+                                <button type="button" class="btn btn-secondary" id="btn-tab-create-user" style="font-size: 12px; padding: 6px 12px;">Novo Usuário</button>
+                            </div>
+                            
+                            <!-- Form 1: Change Password -->
+                            <form id="form-change-password" class="settings-form active" style="margin-top: 5px;">
+                                <div class="form-group">
+                                    <label for="change-pass-current">Senha Atual</label>
+                                    <input type="password" id="change-pass-current" class="form-control" placeholder="Senha atual..." required>
+                                </div>
+                                <div class="form-group margin-top">
+                                    <label for="change-pass-new">Nova Senha</label>
+                                    <input type="password" id="change-pass-new" class="form-control" placeholder="Nova senha..." required>
+                                </div>
+                                <div class="form-group margin-top">
+                                    <label for="change-pass-confirm">Confirmar Nova Senha</label>
+                                    <input type="password" id="change-pass-confirm" class="form-control" placeholder="Confirmar..." required>
+                                </div>
+                                <button type="submit" class="btn btn-primary margin-top">
+                                    <span>Atualizar Senha</span>
+                                    <i data-lucide="lock"></i>
+                                </button>
+                            </form>
+
+                            <!-- Form 2: Register New User -->
+                            <form id="form-register-user" class="settings-form" style="margin-top: 5px; display: none;">
+                                <div class="form-group">
+                                    <label for="register-username">Nome de Usuário</label>
+                                    <input type="text" id="register-username" class="form-control" placeholder="Novo usuário..." required>
+                                </div>
+                                <div class="form-group margin-top">
+                                    <label for="register-password">Senha</label>
+                                    <input type="password" id="register-password" class="form-control" placeholder="Senha..." required>
+                                </div>
+                                <div class="form-group margin-top">
+                                    <label for="register-confirm">Confirmar Senha</label>
+                                    <input type="password" id="register-confirm" class="form-control" placeholder="Confirmar..." required>
+                                </div>
+                                <button type="submit" class="btn btn-primary margin-top">
+                                    <span>Cadastrar Usuário</span>
+                                    <i data-lucide="user-plus"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coolify Deploy Guide -->
                     <div class="section-card">
                         <div class="card-header border-bottom">
                             <h3>Como subir no Coolify</h3>

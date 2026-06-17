@@ -59,6 +59,26 @@ export async function initDb() {
   try {
     console.log("Inicializando tabelas do banco de dados...");
 
+    // Tabela de usuarios
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        salt VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+    `);
+
+    // Tabela de sessoes
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sessoes (
+        token VARCHAR(255) PRIMARY KEY,
+        usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+    `);
+
     // Tabela de transacoes
     await client.query(`
       CREATE TABLE IF NOT EXISTS transacoes (
@@ -83,6 +103,12 @@ export async function initDb() {
         type VARCHAR(10) NOT NULL CHECK (type IN ('Entrada', 'Saída')),
         date VARCHAR(7) NOT NULL
       );
+    `);
+
+    // Adicionar coluna usuario_id para isolamento de dados
+    await client.query(`
+      ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE;
+      ALTER TABLE forecast_events ADD COLUMN IF NOT EXISTS usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE;
     `);
 
     console.log("Banco de dados verificado e pronto para uso.");
