@@ -1425,6 +1425,7 @@ select {
     .main-content {
         margin-left: 0;
         width: 100%;
+        max-width: 100%;
         min-width: 0;
         padding: 20px;
         overflow-x: hidden;
