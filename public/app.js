@@ -1277,7 +1277,11 @@ function populateFilterDropdowns() {
     const monthSelect = document.getElementById('filter-month');
     const categorySelect = document.getElementById('filter-category');
 
-    const currentMonthSel = monthSelect.value;
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // Preserva seleção atual (ou usa o mês corrente na 1ª carga)
+    const currentMonthSel = monthSelect.value || currentYearMonth;
     const currentCategorySel = categorySelect.value;
 
     const months = new Set();
@@ -1288,24 +1292,48 @@ function populateFilterDropdowns() {
         if (t.Categoria) categories.add(t.Categoria);
     });
 
-    const sortedMonths = Array.from(months).sort().reverse();
-    const sortedCategories = Array.from(categories).sort();
+    // Garante que o mês atual sempre aparece no filtro
+    months.add(currentYearMonth);
 
-    monthSelect.innerHTML = '<option value="all">Todos os Meses</option>';
-    sortedMonths.forEach(m => {
+    // Separa em: atual, futuros (ordem crescente) e passados (ordem decrescente)
+    const allMonths = Array.from(months);
+    const futureMonths = allMonths.filter(m => m > currentYearMonth).sort();          // crescente
+    const pastMonths   = allMonths.filter(m => m < currentYearMonth).sort().reverse(); // decrescente
+
+    const formatMonth = (m) => {
         const [year, month] = m.split('-');
         const dateObj = new Date(year, parseInt(month) - 1, 1);
-        const monthName = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-        const formattedName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-        monthSelect.innerHTML += `<option value="${m}">${formattedName}</option>`;
-    });
+        const name = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
+    monthSelect.innerHTML = '<option value="all">Todos os Meses</option>';
+
+    // Mês atual destacado
+    monthSelect.innerHTML += `<option value="${currentYearMonth}">● ${formatMonth(currentYearMonth)} (atual)</option>`;
+
+    // Meses futuros
+    if (futureMonths.length > 0) {
+        futureMonths.forEach(m => {
+            monthSelect.innerHTML += `<option value="${m}">${formatMonth(m)}</option>`;
+        });
+    }
+
+    // Meses passados
+    if (pastMonths.length > 0) {
+        pastMonths.forEach(m => {
+            monthSelect.innerHTML += `<option value="${m}">${formatMonth(m)}</option>`;
+        });
+    }
 
     categorySelect.innerHTML = '<option value="all">Todas Categorias</option>';
-    sortedCategories.forEach(c => {
+    Array.from(categories).sort().forEach(c => {
         categorySelect.innerHTML += `<option value="${c}">${c}</option>`;
     });
 
+    // Restaura seleção (usa mês atual se não houver valor preservado)
     monthSelect.value = currentMonthSel;
+    if (!monthSelect.value) monthSelect.value = currentYearMonth;
     categorySelect.value = currentCategorySel;
 }
 
@@ -1453,6 +1481,20 @@ function applyFilters() {
     const filterCategory = document.getElementById('filter-category').value;
     const filterType = document.getElementById('filter-type').value;
 
+    // Atualiza título do histórico com o mês selecionado
+    const historyTitle = document.getElementById('history-transactions-title');
+    if (historyTitle) {
+        if (filterMonth === 'all') {
+            historyTitle.textContent = 'Histórico de Transações';
+        } else {
+            const [year, month] = filterMonth.split('-');
+            const dateObj = new Date(year, parseInt(month) - 1, 1);
+            const name = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            const formattedName = name.charAt(0).toUpperCase() + name.slice(1);
+            historyTitle.textContent = `Transações de ${formattedName}`;
+        }
+    }
+
     AppState.filteredTransactions = AppState.transactions.filter(t => {
         const matchesSearch = t.Descrição.toLowerCase().includes(searchQuery) || 
                               t.Categoria.toLowerCase().includes(searchQuery);
@@ -1468,8 +1510,10 @@ function applyFilters() {
 }
 
 function clearFilters() {
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     document.getElementById('filter-search').value = '';
-    document.getElementById('filter-month').value = 'all';
+    document.getElementById('filter-month').value = currentYearMonth;
     document.getElementById('filter-category').value = 'all';
     document.getElementById('filter-type').value = 'all';
     applyFilters();
