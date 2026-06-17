@@ -47,12 +47,13 @@
     box-sizing: border-box;
 }
 
-body {
+html, body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
     font-family: var(--font-body);
     min-height: 100vh;
     overflow-x: hidden;
+    width: 100%;
     line-height: 1.5;
 }
 
@@ -501,6 +502,7 @@ h1, h2, h3, h4, h5, h6 {
     border-radius: var(--border-radius-lg);
     padding: 24px;
     backdrop-filter: blur(12px);
+    min-width: 0;
 }
 
 .chart-header {
@@ -565,6 +567,7 @@ h1, h2, h3, h4, h5, h6 {
     padding: 24px;
     backdrop-filter: blur(12px);
     margin-bottom: 28px;
+    min-width: 0;
 }
 
 .card-header {
@@ -1364,6 +1367,8 @@ select {
 @media (max-width: 768px) {
     .app-container {
         flex-direction: column;
+        width: 100%;
+        overflow-x: hidden;
     }
     
     .sidebar {
@@ -1382,13 +1387,28 @@ select {
     .sidebar-nav {
         flex-direction: row;
         overflow-x: auto;
-        padding-bottom: 4px;
-        -ms-overflow-style: none;  /* IE/Edge */
-        scrollbar-width: none;  /* Firefox */
+        padding-bottom: 6px;
+        -ms-overflow-style: auto;
+        scrollbar-width: thin;
     }
     
     .sidebar-nav::-webkit-scrollbar {
-        display: none;  /* Chrome, Safari, Opera */
+        height: 4px;
+        display: block;
+    }
+    
+    .sidebar-nav::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 2px;
+    }
+    
+    .sidebar-nav::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 2px;
+    }
+    
+    .sidebar-nav::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.22);
     }
     
     .nav-item {
@@ -1404,8 +1424,10 @@ select {
     
     .main-content {
         margin-left: 0;
-        max-width: 100%;
+        width: 100%;
+        min-width: 0;
         padding: 20px;
+        overflow-x: hidden;
     }
     
     .header-welcome h1 {
