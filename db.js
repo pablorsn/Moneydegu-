@@ -12,17 +12,36 @@ if (!connectionString) {
   console.warn("AVISO: A variável de ambiente DATABASE_URL não está configurada.");
 }
 
-const isLocal = !connectionString || (
-  connectionString.includes('localhost') || 
-  connectionString.includes('127.0.0.1') || 
-  connectionString.includes('@db:')
-);
+let isLocal = !connectionString;
+let sslDisabled = false;
 
-const useSsl = process.env.NODE_ENV === 'production' && !isLocal && process.env.DB_SSL !== 'false';
+if (connectionString) {
+  if (connectionString.includes('sslmode=disable') || connectionString.includes('ssl=false')) {
+    sslDisabled = true;
+  }
+  try {
+    // Replace postgresql:// with http:// to ensure standard URL parser works flawlessly
+    const url = new URL(connectionString.replace('postgresql://', 'http://').replace('postgres://', 'http://'));
+    const host = url.hostname;
+    isLocal = host === 'localhost' || 
+              host === '127.0.0.1' || 
+              !host.includes('.') || // Docker service names like 'db' or 'postgres' don't have dots
+              host.startsWith('172.') || 
+              host.startsWith('10.') || 
+              host.startsWith('192.168.');
+  } catch (e) {
+    isLocal = connectionString.includes('localhost') || 
+              connectionString.includes('127.0.0.1') || 
+              connectionString.includes('@db:') || 
+              connectionString.includes('@postgres:');
+  }
+}
+
+const useSsl = process.env.NODE_ENV === 'production' && !isLocal && !sslDisabled && process.env.DB_SSL !== 'false';
 
 console.log(`[Banco de Dados] Conexão: ${connectionString ? 'Configurada' : 'NÃO configurada (usando padrões)'}`);
-console.log(`[Banco de Dados] NODE_ENV: ${process.env.NODE_ENV || 'não definido'}`);
-console.log(`[Banco de Dados] Conexão local detectada: ${isLocal}`);
+console.log(`[Banco de Dados] Host local detectado: ${isLocal}`);
+console.log(`[Banco de Dados] SSL desativado explicitamente: ${sslDisabled}`);
 console.log(`[Banco de Dados] SSL Ativo: ${useSsl}`);
 
 const pool = new Pool({
