@@ -908,9 +908,11 @@ async function deleteUser(id, username) {
         return;
     }
 
-    if (!confirm(`Tem certeza que deseja excluir o usuário "${username}"? Esta ação não pode ser desfeita.`)) {
-        return;
-    }
+    const confirmedUser = await showConfirmModal({
+        title: 'Excluir usuário',
+        message: `Tem certeza que deseja excluir o usuário <strong>"${username}"</strong>?<br>Esta ação não pode ser desfeita.`
+    });
+    if (!confirmedUser) return;
 
     if (AppState.isDemoMode) {
         const cachedUsers = localStorage.getItem('finvue_demo_users');
@@ -1694,7 +1696,10 @@ async function deleteTransaction(id) {
     const tx = AppState.transactions.find(t => t.Id === id);
     if (!tx) return;
 
-    const confirmed = confirm(`Deseja realmente excluir a transação "${tx.Descrição}" no valor de ${formatCurrency(tx.Valor)}?`);
+    const confirmed = await showConfirmModal({
+        title: 'Excluir transação',
+        message: `Deseja realmente excluir <strong>"${tx.Descrição}"</strong><br>no valor de <strong>${formatCurrency(tx.Valor)}</strong>?`
+    });
     if (confirmed) {
         await deleteTransactionFromSupabase(id);
     }
@@ -2473,4 +2478,37 @@ function removeToast(toastEl) {
             toastEl.remove();
         });
     }
+}
+
+// --- CONFIRM MODAL (substituição do confirm() nativo) ---
+function showConfirmModal({ title = 'Confirmar exclusão', message = 'Tem certeza que deseja excluir este item?' } = {}) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('confirm-modal');
+        const titleEl = document.getElementById('confirm-modal-title');
+        const msgEl   = document.getElementById('confirm-modal-message');
+        const btnOk   = document.getElementById('confirm-modal-ok');
+        const btnCancel = document.getElementById('confirm-modal-cancel');
+
+        titleEl.textContent = title;
+        msgEl.innerHTML     = message;
+
+        overlay.classList.add('active');
+        lucide.createIcons();
+
+        const cleanup = (result) => {
+            overlay.classList.remove('active');
+            btnOk.removeEventListener('click', onOk);
+            btnCancel.removeEventListener('click', onCancel);
+            overlay.removeEventListener('click', onBackdrop);
+            resolve(result);
+        };
+
+        const onOk      = () => cleanup(true);
+        const onCancel  = () => cleanup(false);
+        const onBackdrop = (e) => { if (e.target === overlay) cleanup(false); };
+
+        btnOk.addEventListener('click', onOk);
+        btnCancel.addEventListener('click', onCancel);
+        overlay.addEventListener('click', onBackdrop);
+    });
 }

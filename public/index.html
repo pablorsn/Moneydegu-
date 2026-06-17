@@ -697,6 +697,31 @@ DATABASE_URL=postgresql://[usuario]:[senha]@[host]:[porta]/[banco]</pre>
         </div>
     </div>
 
+    <!-- Modal: Confirmação de Exclusão -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal-card confirm-modal-card">
+            <div class="confirm-modal-icon-wrap">
+                <div class="confirm-modal-icon">
+                    <i data-lucide="alert-triangle"></i>
+                </div>
+            </div>
+            <div class="confirm-modal-content">
+                <h3 id="confirm-modal-title">Confirmar exclusão</h3>
+                <p id="confirm-modal-message">Tem certeza que deseja excluir este item?</p>
+            </div>
+            <div class="modal-footer confirm-modal-footer">
+                <button type="button" class="btn btn-ghost" id="confirm-modal-cancel">
+                    <i data-lucide="x"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="confirm-modal-ok">
+                    <i data-lucide="trash-2"></i>
+                    Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Alert / Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
