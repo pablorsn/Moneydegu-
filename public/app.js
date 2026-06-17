@@ -220,6 +220,7 @@ function showAuthenticatedApp(user) {
         welcomeEl.innerHTML = `Olá, <span>${user.username}</span>!`;
     }
     
+    switchTab('dashboard');
     loadDataFromServer();
 }
 
@@ -2005,12 +2006,16 @@ async function deleteForecastEvent(index) {
 }
 
 // --- GRÁFICOS DO CHART.JS ---
+let chartRenderTimeout = null;
 function renderDashboardCharts() {
     const isDashboardActive = document.getElementById('dashboard').classList.contains('active');
     if (!isDashboardActive) return;
 
-    renderBalanceEvolutionChart();
-    renderExpensesCategoryChart();
+    if (chartRenderTimeout) clearTimeout(chartRenderTimeout);
+    chartRenderTimeout = setTimeout(() => {
+        renderBalanceEvolutionChart();
+        renderExpensesCategoryChart();
+    }, 100);
 }
 
 function renderBalanceEvolutionChart() {
