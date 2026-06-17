@@ -1131,6 +1131,9 @@ select {
     overflow: hidden;
     transform: scale(0.95);
     transition: transform var(--transition-normal);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-overlay.active .modal-card {
@@ -1178,6 +1181,8 @@ select {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    overflow-y: auto;
+    flex-grow: 1;
 }
 
 .form-row {
@@ -1319,6 +1324,23 @@ select {
     opacity: 0;
 }
 
+/* Custom scrollbar for tables to fit the glassmorphism theme */
+.table-container::-webkit-scrollbar {
+    height: 6px;
+}
+.table-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+}
+.table-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    transition: var(--transition-fast);
+}
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
 /* ==========================================================================
    RESPONSIVE OVERRIDES
    ========================================================================== */
@@ -1388,6 +1410,52 @@ select {
     
     .col-6 {
         width: 100%;
+    }
+
+    /* Additional layout adjustments for tablet/mobile */
+    .chart-body {
+        height: 220px;
+    }
+    
+    .filters-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    
+    .search-box {
+        width: 100%;
+        min-width: 100%;
+    }
+    
+    .filter-group {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 8px;
+    }
+    
+    .filter-group select {
+        width: 100%;
+    }
+    
+    #btn-clear-filters {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Compact modals on small screens */
+    .modal-header {
+        padding: 16px 20px;
+    }
+    
+    .modal-body {
+        padding: 16px 20px;
+        gap: 16px;
+    }
+    
+    .modal-footer {
+        padding: 12px 20px;
     }
 }
 
@@ -1711,6 +1779,26 @@ input[type="hidden"] {
     color: white;
     border-color: var(--primary);
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+/* Extra small mobile adjustments */
+@media (max-width: 480px) {
+    .login-card {
+        padding: 24px 20px;
+        max-width: 92%;
+    }
+    .login-brand {
+        margin-bottom: 20px;
+    }
+    .login-brand h2 {
+        font-size: 20px;
+    }
+    .login-header {
+        margin-bottom: 20px;
+    }
+    .login-header h3 {
+        font-size: 18px;
+    }
 }
 
 

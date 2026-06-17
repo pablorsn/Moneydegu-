@@ -135,7 +135,20 @@ async function checkAuthentication() {
 
 async function checkSetupStatus() {
     try {
+        // Reset form inputs display and requirements
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.querySelectorAll('.form-group').forEach(el => el.style.display = 'block');
+        }
+        const usernameInput = document.getElementById('login-username');
+        const passwordInput = document.getElementById('login-password');
+        if (usernameInput) usernameInput.required = true;
+        if (passwordInput) passwordInput.required = true;
+
         const res = await fetch('/api/auth/setup-status');
+        if (!res.ok) {
+            throw new Error('Servidor offline ou erro no banco.');
+        }
         const data = await res.json();
         
         const loginScreen = document.getElementById('login-screen');
@@ -165,6 +178,30 @@ async function checkSetupStatus() {
     } catch (error) {
         console.error('Erro ao verificar setup:', error);
         enableDemoMode();
+        
+        // Adapt card to allow entering Demo Mode when backend/DB is offline
+        document.getElementById('login-title').innerText = 'Banco Desconectado';
+        document.getElementById('login-subtitle').innerText = 'Não foi possível conectar ao banco de dados. Você pode testar no Modo Simulação.';
+        document.getElementById('login-btn-text').innerText = 'Entrar em Modo Simulação';
+        
+        const btnIcon = document.getElementById('login-btn-icon');
+        if (btnIcon) {
+            btnIcon.className = '';
+            btnIcon.setAttribute('data-lucide', 'play');
+        }
+        
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.setAttribute('data-mode', 'demo');
+            loginForm.querySelectorAll('.form-group').forEach(el => el.style.display = 'none');
+        }
+        
+        const usernameInput = document.getElementById('login-username');
+        const passwordInput = document.getElementById('login-password');
+        if (usernameInput) usernameInput.required = false;
+        if (passwordInput) passwordInput.required = false;
+        
+        lucide.createIcons();
     }
 }
 
@@ -341,6 +378,14 @@ async function handleLoginSubmit(e) {
     e.preventDefault();
     const form = e.target;
     const mode = form.getAttribute('data-mode');
+    
+    if (mode === 'demo') {
+        showToast('Entrando no Modo Simulação local.', 'info');
+        showAuthenticatedApp({ username: 'Visitante' });
+        form.reset();
+        return;
+    }
+    
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
     
