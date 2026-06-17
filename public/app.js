@@ -1971,7 +1971,9 @@ function calculateForecastAndRender() {
         let realFutureExpense = 0;
         AppState.transactions.forEach(t => {
             const tYearMonth = t.Data.substring(0, 7);
-            if (tYearMonth === projYearMonth && t.Recorrência === 'Única') {
+            // Inclui transações únicas E parcelas já cadastradas para meses futuros
+            const isScheduled = t.Recorrência === 'Única' || t.Recorrência === 'Parcelado';
+            if (tYearMonth === projYearMonth && isScheduled) {
                 if (t.Tipo === 'Entrada') realFutureIncome += t.Valor;
                 else realFutureExpense += t.Valor;
                 
