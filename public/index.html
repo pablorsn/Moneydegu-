@@ -35,6 +35,10 @@
             <div class="login-header">
                 <h3 id="login-title">Fazer Login</h3>
                 <p id="login-subtitle">Acesse seu gestor financeiro inteligente.</p>
+                <div id="login-error-alert" class="login-error-alert" style="display: none; margin-top: 12px; padding: 10px 14px; background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: var(--border-radius-sm); color: #fda4af; font-size: 13px; text-align: left; display: flex; align-items: center; gap: 8px; width: 100%;">
+                    <i data-lucide="alert-circle" style="width: 16px; height: 16px; flex-shrink: 0;"></i>
+                    <span id="login-error-message">Usuário ou senha incorretos.</span>
+                </div>
             </div>
             
             <form id="login-form">
@@ -428,6 +432,7 @@
                             <div class="settings-tab-buttons" style="display: flex; gap: 8px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
                                 <button type="button" class="btn btn-secondary active" id="btn-tab-change-pass" style="font-size: 12px; padding: 6px 12px;">Alterar Senha</button>
                                 <button type="button" class="btn btn-secondary" id="btn-tab-create-user" style="font-size: 12px; padding: 6px 12px;">Novo Usuário</button>
+                                <button type="button" class="btn btn-secondary" id="btn-tab-manage-users" style="font-size: 12px; padding: 6px 12px;">Contas Cadastradas</button>
                             </div>
                             
                             <!-- Form 1: Change Password -->
@@ -469,7 +474,44 @@
                                     <i data-lucide="user-plus"></i>
                                 </button>
                             </form>
-                        </div>
+
+                            <!-- Form 3: Manage Users List -->
+                            <div id="settings-manage-users" class="settings-form" style="margin-top: 5px; display: none;">
+                                <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                                    <table class="transaction-table" id="users-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Usuário</th>
+                                                <th>Criado em</th>
+                                                <th style="text-align: center; width: 100px;">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="users-list">
+                                            <!-- Dinamicamente preenchido -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Inline Edit User Form -->
+                                <div id="edit-user-container" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border);">
+                                    <h4 style="margin-bottom: 12px; font-size: 14px;">Editar Usuário: <span id="edit-user-title-name" style="color: var(--primary);"></span></h4>
+                                    <form id="form-edit-user">
+                                        <input type="hidden" id="edit-user-id" value="">
+                                        <div class="form-group">
+                                            <label for="edit-user-username">Nome de Usuário</label>
+                                            <input type="text" id="edit-user-username" class="form-control" placeholder="Novo nome..." required>
+                                        </div>
+                                        <div class="form-group margin-top">
+                                            <label for="edit-user-password">Nova Senha (deixe em branco para manter a atual)</label>
+                                            <input type="password" id="edit-user-password" class="form-control" placeholder="Nova senha...">
+                                        </div>
+                                        <div class="settings-actions" style="margin-top: 16px;">
+                                            <button type="submit" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;">Salvar Alterações</button>
+                                            <button type="button" class="btn btn-secondary" id="btn-cancel-edit-user" style="font-size: 12px; padding: 6px 12px;">Cancelar</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                     </div>
                 </div>
 

@@ -234,6 +234,83 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
   }
 });
 
+// 7. Listar todos os usuários cadastrados
+app.get('/api/users', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id, username, created_at FROM usuarios ORDER BY id ASC');
+    return res.json(rows);
+  } catch (error) {
+    console.error('Erro ao listar usuários:', error);
+    return res.status(500).json({ error: 'Erro ao buscar usuários no banco de dados.' });
+  }
+});
+
+// 8. Atualizar um usuário (username e/ou senha)
+app.put('/api/users/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { username, password } = req.body;
+  
+  if (!username || username.trim() === '') {
+    return res.status(400).json({ error: 'Nome de usuário é obrigatório.' });
+  }
+  
+  try {
+    // Verificar se o nome de usuário já existe para outro id
+    const existsRes = await pool.query('SELECT id FROM usuarios WHERE username = $1 AND id != $2', [username.trim(), id]);
+    if (existsRes.rowCount > 0) {
+      return res.status(400).json({ error: 'Nome de usuário já está em uso.' });
+    }
+    
+    let query, values;
+    if (password && password.trim() !== '') {
+      const salt = generateSalt();
+      const passwordHash = hashPassword(password, salt);
+      query = 'UPDATE usuarios SET username = $1, password_hash = $2, salt = $3 WHERE id = $4 RETURNING id, username';
+      values = [username.trim(), passwordHash, salt, id];
+    } else {
+      query = 'UPDATE usuarios SET username = $1 WHERE id = $2 RETURNING id, username';
+      values = [username.trim(), id];
+    }
+    
+    const { rows } = await pool.query(query, values);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+    
+    // Se mudou a senha ou o próprio usuário, invalidar sessões daquele usuário
+    if (password && password.trim() !== '') {
+      const authHeader = req.headers.authorization;
+      const currentToken = authHeader ? authHeader.split(' ')[1] : '';
+      await pool.query('DELETE FROM sessoes WHERE usuario_id = $1 AND token != $2', [id, currentToken]);
+    }
+    
+    return res.json({ message: 'Usuário atualizado com sucesso.', user: rows[0] });
+  } catch (error) {
+    console.error('Erro ao atualizar usuário:', error);
+    return res.status(500).json({ error: 'Erro ao atualizar usuário no banco de dados.' });
+  }
+});
+
+// 9. Excluir um usuário
+app.delete('/api/users/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  
+  if (parseInt(id) === req.user.id) {
+    return res.status(400).json({ error: 'Você não pode excluir sua própria conta.' });
+  }
+  
+  try {
+    const { rows } = await pool.query('DELETE FROM usuarios WHERE id = $1 RETURNING id');
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+    return res.json({ message: 'Usuário excluído com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao excluir usuário:', error);
+    return res.status(500).json({ error: 'Erro ao excluir usuário no banco de dados.' });
+  }
+});
+
 // --- API ROTAS PARA TRANSAÇÕES ---
 
 // 1. Listar todas as transações

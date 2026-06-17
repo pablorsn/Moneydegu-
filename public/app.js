@@ -16,6 +16,7 @@ async function apiFetch(url, options = {}) {
 
 // --- ESTADO GLOBAL DA APLICAÇÃO ---
 const AppState = {
+    user: null,
     transactions: [],
     forecastEvents: [],
     isLoading: false,
@@ -135,6 +136,10 @@ async function checkAuthentication() {
 
 async function checkSetupStatus() {
     try {
+        AppState.user = null;
+        const errorAlert = document.getElementById('login-error-alert');
+        if (errorAlert) errorAlert.style.display = 'none';
+
         // Reset form inputs display and requirements
         const loginForm = document.getElementById('login-form');
         if (loginForm) {
@@ -206,6 +211,7 @@ async function checkSetupStatus() {
 }
 
 function showAuthenticatedApp(user) {
+    AppState.user = user;
     document.getElementById('login-screen').classList.remove('active');
     document.querySelector('.app-container').style.display = 'flex';
     
@@ -371,6 +377,18 @@ function setupEventListeners() {
     const formRegisterUser = document.getElementById('form-register-user');
     if (formRegisterUser) formRegisterUser.addEventListener('submit', handleSettingsRegisterSubmit);
 
+    const formEditUser = document.getElementById('form-edit-user');
+    if (formEditUser) formEditUser.addEventListener('submit', handleEditUserSubmit);
+
+    const btnCancelEditUser = document.getElementById('btn-cancel-edit-user');
+    if (btnCancelEditUser) {
+        btnCancelEditUser.addEventListener('click', () => {
+            const editUserContainer = document.getElementById('edit-user-container');
+            if (editUserContainer) editUserContainer.style.display = 'none';
+            if (formEditUser) formEditUser.reset();
+        });
+    }
+
     setupSettingsUserTabs();
 }
 
@@ -378,6 +396,9 @@ async function handleLoginSubmit(e) {
     e.preventDefault();
     const form = e.target;
     const mode = form.getAttribute('data-mode');
+    
+    const errorAlert = document.getElementById('login-error-alert');
+    if (errorAlert) errorAlert.style.display = 'none';
     
     if (mode === 'demo') {
         showToast('Entrando no Modo Simulação local.', 'info');
@@ -415,10 +436,20 @@ async function handleLoginSubmit(e) {
             showAuthenticatedApp(data.user);
             form.reset();
         } else {
+            if (errorAlert) {
+                document.getElementById('login-error-message').innerText = data.error || 'Erro na operação.';
+                errorAlert.style.display = 'flex';
+                lucide.createIcons();
+            }
             showToast(data.error || 'Erro na operação.', 'error');
         }
     } catch (error) {
         console.error('Erro de autenticação:', error);
+        if (errorAlert) {
+            document.getElementById('login-error-message').innerText = 'Erro ao se conectar com o servidor.';
+            errorAlert.style.display = 'flex';
+            lucide.createIcons();
+        }
         showToast('Erro ao se conectar com o servidor.', 'error');
     } finally {
         submitBtnText.innerText = oldText;
@@ -446,6 +477,7 @@ async function handleLogout(e) {
     showToast('Sessão encerrada com sucesso.', 'info');
     
     // Limpar dados do estado
+    AppState.user = null;
     AppState.transactions = [];
     AppState.forecastEvents = [];
     
@@ -496,6 +528,35 @@ async function handleSettingsRegisterSubmit(e) {
         return;
     }
     
+    if (AppState.isDemoMode) {
+        const cachedUsers = localStorage.getItem('finvue_demo_users');
+        let users = cachedUsers ? JSON.parse(cachedUsers) : [];
+        
+        // Verificar se usuário já existe
+        const exists = users.some(u => u.username.toLowerCase() === username.toLowerCase().trim());
+        if (exists) {
+            showToast('Nome de usuário já está em uso.', 'error');
+            return;
+        }
+
+        const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
+        users.push({
+            id: nextId,
+            username: username.trim(),
+            created_at: new Date().toISOString()
+        });
+        localStorage.setItem('finvue_demo_users', JSON.stringify(users));
+
+        showToast(`Usuário "${username}" cadastrado com sucesso! (Modo Simulação)`, 'success');
+        e.target.reset();
+
+        const settingsManageUsers = document.getElementById('settings-manage-users');
+        if (settingsManageUsers && settingsManageUsers.style.display !== 'none') {
+            loadUsersList();
+        }
+        return;
+    }
+    
     try {
         const res = await fetch('/api/auth/register', {
             method: 'POST',
@@ -506,6 +567,10 @@ async function handleSettingsRegisterSubmit(e) {
         if (res.ok) {
             showToast(`Usuário "${username}" cadastrado com sucesso!`, 'success');
             e.target.reset();
+            const settingsManageUsers = document.getElementById('settings-manage-users');
+            if (settingsManageUsers && settingsManageUsers.style.display !== 'none') {
+                loadUsersList();
+            }
         } else {
             showToast(data.error || 'Erro ao cadastrar usuário.', 'error');
         }
@@ -518,28 +583,351 @@ async function handleSettingsRegisterSubmit(e) {
 function setupSettingsUserTabs() {
     const btnChangePass = document.getElementById('btn-tab-change-pass');
     const btnCreateUser = document.getElementById('btn-tab-create-user');
+    const btnManageUsers = document.getElementById('btn-tab-manage-users');
     const formChangePass = document.getElementById('form-change-password');
     const formCreateUser = document.getElementById('form-register-user');
+    const settingsManageUsers = document.getElementById('settings-manage-users');
+    const editUserContainer = document.getElementById('edit-user-container');
     
-    if (!btnChangePass || !btnCreateUser || !formChangePass || !formCreateUser) return;
+    if (!btnChangePass || !btnCreateUser || !btnManageUsers || !formChangePass || !formCreateUser || !settingsManageUsers) return;
     
     btnChangePass.addEventListener('click', () => {
         btnChangePass.classList.add('active');
         btnCreateUser.classList.remove('active');
+        btnManageUsers.classList.remove('active');
+        
         formChangePass.classList.add('active');
         formChangePass.style.display = 'block';
+        
         formCreateUser.classList.remove('active');
         formCreateUser.style.display = 'none';
+        
+        settingsManageUsers.classList.remove('active');
+        settingsManageUsers.style.display = 'none';
+        
+        if (editUserContainer) editUserContainer.style.display = 'none';
     });
     
     btnCreateUser.addEventListener('click', () => {
         btnCreateUser.classList.add('active');
         btnChangePass.classList.remove('active');
+        btnManageUsers.classList.remove('active');
+        
         formCreateUser.classList.add('active');
         formCreateUser.style.display = 'block';
+        
         formChangePass.classList.remove('active');
         formChangePass.style.display = 'none';
+        
+        settingsManageUsers.classList.remove('active');
+        settingsManageUsers.style.display = 'none';
+        
+        if (editUserContainer) editUserContainer.style.display = 'none';
     });
+
+    btnManageUsers.addEventListener('click', () => {
+        btnManageUsers.classList.add('active');
+        btnChangePass.classList.remove('active');
+        btnCreateUser.classList.remove('active');
+        
+        settingsManageUsers.classList.add('active');
+        settingsManageUsers.style.display = 'block';
+        
+        formChangePass.classList.remove('active');
+        formChangePass.style.display = 'none';
+        
+        formCreateUser.classList.remove('active');
+        formCreateUser.style.display = 'none';
+        
+        if (editUserContainer) editUserContainer.style.display = 'none';
+        
+        loadUsersList();
+    });
+}
+
+async function loadUsersList() {
+    const usersListBody = document.getElementById('users-list');
+    if (!usersListBody) return;
+
+    usersListBody.innerHTML = `
+        <tr>
+            <td colspan="3" style="text-align: center; padding: 20px;">Carregando usuários...</td>
+        </tr>
+    `;
+
+    try {
+        let users = [];
+        if (AppState.isDemoMode) {
+            const cachedUsers = localStorage.getItem('finvue_demo_users');
+            if (cachedUsers) {
+                users = JSON.parse(cachedUsers);
+            } else {
+                users = [
+                    { id: 1, username: 'Visitante', created_at: new Date().toISOString() },
+                    { id: 2, username: 'admin_teste', created_at: new Date(Date.now() - 86400000).toISOString() }
+                ];
+                localStorage.setItem('finvue_demo_users', JSON.stringify(users));
+            }
+        } else {
+            const res = await apiFetch('/api/users');
+            if (!res.ok) {
+                throw new Error('Falha ao carregar usuários.');
+            }
+            users = await res.json();
+        }
+        
+        usersListBody.innerHTML = '';
+        if (users.length === 0) {
+            usersListBody.innerHTML = `
+                <tr>
+                    <td colspan="3" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        // Recuperar o ID do usuário logado do AppState
+        const currentUserId = AppState.user ? AppState.user.id : (AppState.isDemoMode ? 1 : null);
+
+        users.forEach(user => {
+            const tr = document.createElement('tr');
+            
+            // Format date to local/friendly format
+            let formattedDate = 'N/A';
+            if (user.created_at) {
+                const dateObj = new Date(user.created_at);
+                formattedDate = dateObj.toLocaleDateString('pt-BR') + ' ' + dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            }
+
+            const usernameSpan = document.createElement('span');
+            usernameSpan.textContent = user.username;
+            if (user.id === currentUserId) {
+                usernameSpan.innerHTML += ' <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; font-size: 10px; padding: 2px 6px; margin-left: 6px; border-radius: 4px;">Você</span>';
+            }
+
+            const tdUser = document.createElement('td');
+            tdUser.appendChild(usernameSpan);
+
+            const tdCreated = document.createElement('td');
+            tdCreated.textContent = formattedDate;
+
+            const tdActions = document.createElement('td');
+            tdActions.style.textAlign = 'center';
+            tdActions.style.display = 'flex';
+            tdActions.style.justifyContent = 'center';
+            tdActions.style.gap = '8px';
+
+            // Edit button
+            const btnEdit = document.createElement('button');
+            btnEdit.type = 'button';
+            btnEdit.className = 'btn-table-action edit';
+            btnEdit.title = 'Editar';
+            btnEdit.innerHTML = '<i data-lucide="edit-3"></i>';
+            btnEdit.addEventListener('click', () => editUser(user.id, user.username));
+
+            // Delete button (disabled for self)
+            const btnDelete = document.createElement('button');
+            btnDelete.type = 'button';
+            btnDelete.className = 'btn-table-action delete';
+            btnDelete.title = 'Excluir';
+            btnDelete.innerHTML = '<i data-lucide="trash-2"></i>';
+            if (user.id === currentUserId) {
+                btnDelete.disabled = true;
+                btnDelete.style.opacity = '0.4';
+                btnDelete.style.cursor = 'not-allowed';
+                btnDelete.title = 'Você não pode excluir a si mesmo';
+            } else {
+                btnDelete.addEventListener('click', () => deleteUser(user.id, user.username));
+            }
+
+            tdActions.appendChild(btnEdit);
+            tdActions.appendChild(btnDelete);
+
+            tr.appendChild(tdUser);
+            tr.appendChild(tdCreated);
+            tr.appendChild(tdActions);
+
+            usersListBody.appendChild(tr);
+        });
+
+        lucide.createIcons();
+    } catch (error) {
+        console.error('Erro ao buscar usuários:', error);
+        usersListBody.innerHTML = `
+            <tr>
+                <td colspan="3" style="text-align: center; padding: 20px; color: var(--danger);">Erro ao carregar usuários.</td>
+            </tr>
+        `;
+        showToast('Erro ao carregar lista de usuários.', 'error');
+    }
+}
+
+function editUser(id, username) {
+    const editContainer = document.getElementById('edit-user-container');
+    const editIdInput = document.getElementById('edit-user-id');
+    const editUsernameInput = document.getElementById('edit-user-username');
+    const editPasswordInput = document.getElementById('edit-user-password');
+    const editTitleName = document.getElementById('edit-user-title-name');
+
+    if (!editContainer || !editIdInput || !editUsernameInput || !editPasswordInput || !editTitleName) return;
+
+    editIdInput.value = id;
+    editUsernameInput.value = username;
+    editPasswordInput.value = ''; // Limpar campo de senha
+    editTitleName.textContent = username;
+
+    editContainer.style.display = 'block';
+    
+    // Rolagem suave até o formulário de edição
+    editContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function handleEditUserSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-user-id').value;
+    const username = document.getElementById('edit-user-username').value;
+    const password = document.getElementById('edit-user-password').value;
+
+    if (!username || username.trim() === '') {
+        showToast('O nome de usuário não pode ficar vazio.', 'warning');
+        return;
+    }
+
+    if (AppState.isDemoMode) {
+        const cachedUsers = localStorage.getItem('finvue_demo_users');
+        let users = cachedUsers ? JSON.parse(cachedUsers) : [];
+        
+        // Verificar se usuário já existe
+        const exists = users.some(u => u.username.toLowerCase() === username.toLowerCase().trim() && u.id !== parseInt(id));
+        if (exists) {
+            showToast('Nome de usuário já está em uso.', 'error');
+            return;
+        }
+
+        users = users.map(u => {
+            if (u.id === parseInt(id)) {
+                return { ...u, username: username.trim() };
+            }
+            return u;
+        });
+        localStorage.setItem('finvue_demo_users', JSON.stringify(users));
+
+        showToast(`Usuário "${username}" atualizado com sucesso! (Modo Simulação)`, 'success');
+
+        const currentUserId = AppState.user ? AppState.user.id : 1;
+        if (currentUserId === parseInt(id)) {
+            if (AppState.user) AppState.user.username = username;
+            const welcomeEl = document.getElementById('welcome-title');
+            if (welcomeEl) {
+                welcomeEl.innerHTML = `Olá, <span>${username}</span>!`;
+            }
+        }
+
+        // Oculta container e reseta formulário
+        const editContainer = document.getElementById('edit-user-container');
+        if (editContainer) editContainer.style.display = 'none';
+        e.target.reset();
+
+        loadUsersList();
+        return;
+    }
+
+    try {
+        const body = { username };
+        if (password && password.trim() !== '') {
+            body.password = password;
+        }
+
+        const res = await apiFetch(`/api/users/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            showToast(`Usuário "${username}" atualizado com sucesso!`, 'success');
+            
+            // Se o usuário editado for ele mesmo, atualiza localmente
+            if (AppState.user && AppState.user.id === parseInt(id)) {
+                AppState.user.username = username;
+                const welcomeEl = document.getElementById('welcome-title');
+                if (welcomeEl) {
+                    welcomeEl.innerHTML = `Olá, <span>${username}</span>!`;
+                }
+            }
+
+            // Oculta container e reseta formulário
+            const editContainer = document.getElementById('edit-user-container');
+            if (editContainer) editContainer.style.display = 'none';
+            e.target.reset();
+
+            // Recarrega lista
+            loadUsersList();
+        } else {
+            showToast(data.error || 'Erro ao atualizar usuário.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar usuário:', error);
+        showToast('Erro ao se conectar com o servidor.', 'error');
+    }
+}
+
+async function deleteUser(id, username) {
+    const currentUserId = AppState.user ? AppState.user.id : (AppState.isDemoMode ? 1 : null);
+    if (currentUserId === parseInt(id)) {
+        showToast('Você não pode excluir a si mesmo.', 'warning');
+        return;
+    }
+
+    if (!confirm(`Tem certeza que deseja excluir o usuário "${username}"? Esta ação não pode ser desfeita.`)) {
+        return;
+    }
+
+    if (AppState.isDemoMode) {
+        const cachedUsers = localStorage.getItem('finvue_demo_users');
+        let users = cachedUsers ? JSON.parse(cachedUsers) : [];
+        users = users.filter(u => u.id !== parseInt(id));
+        localStorage.setItem('finvue_demo_users', JSON.stringify(users));
+
+        showToast(`Usuário "${username}" excluído com sucesso! (Modo Simulação)`, 'success');
+
+        // Se o formulário de edição estiver aberto para este usuário, oculta-o
+        const editIdInput = document.getElementById('edit-user-id');
+        if (editIdInput && editIdInput.value == id) {
+            const editContainer = document.getElementById('edit-user-container');
+            if (editContainer) editContainer.style.display = 'none';
+        }
+
+        loadUsersList();
+        return;
+    }
+
+    try {
+        const res = await apiFetch(`/api/users/${id}`, {
+            method: 'DELETE'
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            showToast(`Usuário "${username}" excluído com sucesso!`, 'success');
+            
+            // Se o formulário de edição estiver aberto para este usuário, oculta-o
+            const editIdInput = document.getElementById('edit-user-id');
+            if (editIdInput && editIdInput.value == id) {
+                const editContainer = document.getElementById('edit-user-container');
+                if (editContainer) editContainer.style.display = 'none';
+            }
+
+            // Recarrega lista
+            loadUsersList();
+        } else {
+            showToast(data.error || 'Erro ao excluir usuário.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao excluir usuário:', error);
+        showToast('Erro ao se conectar com o servidor.', 'error');
+    }
 }
 
 // --- GERENCIAMENTO DE ABAS ---
