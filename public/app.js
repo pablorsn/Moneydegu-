@@ -1396,16 +1396,28 @@ function renderTrendIndicator(element, pct, isInverted = false) {
 
 function renderRecentTransactions() {
     const container = document.getElementById('recent-transactions-list');
+    const titleEl = document.getElementById('recent-transactions-title');
     container.innerHTML = '';
 
-    const recent = AppState.transactions.slice(0, 5);
+    // Filtra pelo mês atual
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    if (recent.length === 0) {
-        container.innerHTML = `<tr><td colspan="6" class="empty-state-text">Nenhuma transação cadastrada.</td></tr>`;
+    const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                        'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const monthLabel = `${monthNames[now.getMonth()]} de ${now.getFullYear()}`;
+    if (titleEl) titleEl.textContent = `Transações de ${monthLabel}`;
+
+    const monthTransactions = AppState.transactions
+        .filter(t => t.Data && t.Data.startsWith(currentYearMonth))
+        .sort((a, b) => new Date(b.Data) - new Date(a.Data));
+
+    if (monthTransactions.length === 0) {
+        container.innerHTML = `<tr><td colspan="6" class="empty-state-text">Nenhuma transação em ${monthLabel}.</td></tr>`;
         return;
     }
 
-    recent.forEach(t => {
+    monthTransactions.forEach(t => {
         const row = document.createElement('tr');
         const formattedDate = formatDateBR(t.Data);
         const formattedVal = formatCurrency(t.Valor);
