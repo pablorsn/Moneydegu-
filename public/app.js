@@ -158,49 +158,14 @@ async function checkSetupStatus() {
             document.getElementById('login-btn-text').innerText = 'Entrar';
             document.getElementById('login-btn-icon').className = '';
             document.getElementById('login-btn-icon').setAttribute('data-lucide', 'log-in');
-            document.getElementById('login-toggle-text').style.display = 'block';
-            document.getElementById('login-toggle-text').innerHTML = 'Não tem uma conta? <a href="#" id="link-toggle-register">Cadastre-se</a>';
+            document.getElementById('login-toggle-text').style.display = 'none';
             document.getElementById('login-form').setAttribute('data-mode', 'login');
-            
-            const linkToggle = document.getElementById('link-toggle-register');
-            if (linkToggle) linkToggle.addEventListener('click', toggleRegisterLogin);
         }
         lucide.createIcons();
     } catch (error) {
         console.error('Erro ao verificar setup:', error);
         enableDemoMode();
     }
-}
-
-function toggleRegisterLogin(e) {
-    e.preventDefault();
-    const form = document.getElementById('login-form');
-    const mode = form.getAttribute('data-mode');
-    
-    if (mode === 'login') {
-        document.getElementById('login-title').innerText = 'Criar Conta';
-        document.getElementById('login-subtitle').innerText = 'Cadastre-se para gerenciar suas finanças.';
-        document.getElementById('login-btn-text').innerText = 'Cadastrar';
-        document.getElementById('login-btn-icon').className = '';
-        document.getElementById('login-btn-icon').setAttribute('data-lucide', 'user-plus');
-        document.getElementById('login-toggle-text').innerHTML = 'Já tem uma conta? <a href="#" id="link-toggle-login">Faça Login</a>';
-        form.setAttribute('data-mode', 'register');
-        
-        const linkToggle = document.getElementById('link-toggle-login');
-        if (linkToggle) linkToggle.addEventListener('click', toggleRegisterLogin);
-    } else {
-        document.getElementById('login-title').innerText = 'Fazer Login';
-        document.getElementById('login-subtitle').innerText = 'Acesse seu gestor tempo real.';
-        document.getElementById('login-btn-text').innerText = 'Entrar';
-        document.getElementById('login-btn-icon').className = '';
-        document.getElementById('login-btn-icon').setAttribute('data-lucide', 'log-in');
-        document.getElementById('login-toggle-text').innerHTML = 'Não tem uma conta? <a href="#" id="link-toggle-register">Cadastre-se</a>';
-        form.setAttribute('data-mode', 'login');
-        
-        const linkToggle = document.getElementById('link-toggle-register');
-        if (linkToggle) linkToggle.addEventListener('click', toggleRegisterLogin);
-    }
-    lucide.createIcons();
 }
 
 function showAuthenticatedApp(user) {
