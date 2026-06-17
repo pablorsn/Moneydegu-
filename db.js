@@ -12,13 +12,18 @@ if (!connectionString) {
   console.warn("AVISO: A variável de ambiente DATABASE_URL não está configurada.");
 }
 
-const isLocal = connectionString && (
+const isLocal = !connectionString || (
   connectionString.includes('localhost') || 
   connectionString.includes('127.0.0.1') || 
   connectionString.includes('@db:')
 );
 
 const useSsl = process.env.NODE_ENV === 'production' && !isLocal && process.env.DB_SSL !== 'false';
+
+console.log(`[Banco de Dados] Conexão: ${connectionString ? 'Configurada' : 'NÃO configurada (usando padrões)'}`);
+console.log(`[Banco de Dados] NODE_ENV: ${process.env.NODE_ENV || 'não definido'}`);
+console.log(`[Banco de Dados] Conexão local detectada: ${isLocal}`);
+console.log(`[Banco de Dados] SSL Ativo: ${useSsl}`);
 
 const pool = new Pool({
   connectionString,
