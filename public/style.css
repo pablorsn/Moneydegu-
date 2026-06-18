@@ -1697,6 +1697,31 @@ select {
     background-color: var(--danger-light);
 }
 
+/* Linhas de recorrência projetada (virtual) */
+tr.tx-virtual {
+    opacity: 0.72;
+    border-left: 3px solid rgba(99, 102, 241, 0.4);
+}
+
+tr.tx-virtual td:first-child {
+    padding-left: 10px;
+}
+
+.badge-projected {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-light);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 20px;
+    padding: 3px 10px;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
 /* Corrige fundo branco nos selects do modo escuro */
 select option {
     background-color: var(--bg-secondary) !important;

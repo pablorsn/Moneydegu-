@@ -1490,21 +1490,69 @@ function applyFilters() {
             const [year, month] = filterMonth.split('-');
             const dateObj = new Date(year, parseInt(month) - 1, 1);
             const name = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-            const formattedName = name.charAt(0).toUpperCase() + name.slice(1);
-            historyTitle.textContent = `Transações de ${formattedName}`;
+            historyTitle.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+            historyTitle.textContent = `Transações de ${name.charAt(0).toUpperCase() + name.slice(1)}`;
         }
     }
 
-    AppState.filteredTransactions = AppState.transactions.filter(t => {
-        const matchesSearch = t.Descrição.toLowerCase().includes(searchQuery) || 
+    // Filtra transações reais
+    let realFiltered = AppState.transactions.filter(t => {
+        const matchesSearch = t.Descrição.toLowerCase().includes(searchQuery) ||
                               t.Categoria.toLowerCase().includes(searchQuery);
         const matchesMonth = filterMonth === 'all' || t.Data.startsWith(filterMonth);
         const matchesCategory = filterCategory === 'all' || t.Categoria === filterCategory;
         const matchesType = filterType === 'all' || t.Tipo === filterType;
-
         return matchesSearch && matchesMonth && matchesCategory && matchesType;
     });
 
+    // Projeção virtual de recorrentes ao filtrar por mês específico
+    if (filterMonth !== 'all') {
+        AppState.transactions.forEach(t => {
+            const tYearMonth = t.Data.substring(0, 7);
+
+            let shouldProject = false;
+            if (t.Recorrência === 'Mensal' && tYearMonth < filterMonth) {
+                shouldProject = true;
+            } else if (t.Recorrência === 'Anual' && tYearMonth < filterMonth) {
+                // Só projeta se o mês do ano bater (ex: cadastrado em jan/2025 → projeta em jan/2026)
+                const tMonth = t.Data.substring(5, 7);
+                const filterMonthNum = filterMonth.substring(5, 7);
+                if (tMonth === filterMonthNum) shouldProject = true;
+            }
+
+            if (!shouldProject) return;
+
+            // Verifica se já existe uma transação real para esse mês com a mesma descrição
+            const alreadyReal = AppState.transactions.some(r =>
+                r.Data.startsWith(filterMonth) &&
+                r.Descrição === t.Descrição &&
+                r.Recorrência === t.Recorrência
+            );
+            if (alreadyReal) return;
+
+            // Aplica os demais filtros
+            const matchesSearch = t.Descrição.toLowerCase().includes(searchQuery) ||
+                                  t.Categoria.toLowerCase().includes(searchQuery);
+            const matchesCategory = filterCategory === 'all' || t.Categoria === filterCategory;
+            const matchesType = filterType === 'all' || t.Tipo === filterType;
+            if (!matchesSearch || !matchesCategory || !matchesType) return;
+
+            // Cria entrada virtual (mantendo o dia original mas trocando o mês)
+            const origDay = t.Data.substring(8, 10);
+            const virtualDate = `${filterMonth}-${origDay}`;
+            realFiltered.push({
+                ...t,
+                Id: `virtual_${t.Id}_${filterMonth}`,
+                Data: virtualDate,
+                _virtual: true
+            });
+        });
+
+        // Reordena por data decrescente
+        realFiltered.sort((a, b) => new Date(b.Data) - new Date(a.Data));
+    }
+
+    AppState.filteredTransactions = realFiltered;
     AppState.currentPage = 1;
     renderTransactionsTable();
 }
@@ -1543,12 +1591,22 @@ function renderTransactionsTable() {
 
     pageItems.forEach(t => {
         const row = document.createElement('tr');
+        const isVirtual = !!t._virtual;
+        if (isVirtual) row.classList.add('tx-virtual');
+
         const formattedDate = formatDateBR(t.Data);
         const formattedVal = formatCurrency(t.Valor);
         const valClass = t.Tipo === 'Entrada' ? 'tx-val income' : 'tx-val expense';
         const sign = t.Tipo === 'Entrada' ? '+' : '-';
         const badgeClass = t.Tipo === 'Entrada' ? 'badge badge-income' : 'badge badge-expense';
-        
+
+        const actionsCell = isVirtual
+            ? `<td><div class="table-actions"><span class="badge-projected" title="Recorrência projetada automaticamente">↺ Recorrente</span></div></td>`
+            : `<td><div class="table-actions">
+                    <button class="btn-table-action edit" title="Editar"><i data-lucide="edit-3"></i></button>
+                    <button class="btn-table-action delete" title="Excluir"><i data-lucide="trash-2"></i></button>
+               </div></td>`;
+
         row.innerHTML = `
             <td>${formattedDate}</td>
             <td style="font-weight: 600;">${t.Descrição}</td>
@@ -1556,17 +1614,14 @@ function renderTransactionsTable() {
             <td><span class="badge badge-recurrence ${t.Recorrência !== 'Única' ? 'active' : ''}">${t.Recorrência}</span></td>
             <td><span class="${badgeClass}">${t.Tipo}</span></td>
             <td class="${valClass}">${sign} ${formattedVal}</td>
-            <td>
-                <div class="table-actions">
-                    <button class="btn-table-action edit" title="Editar"><i data-lucide="edit-3"></i></button>
-                    <button class="btn-table-action delete" title="Excluir"><i data-lucide="trash-2"></i></button>
-                </div>
-            </td>
+            ${actionsCell}
         `;
-        
-        row.querySelector('.edit').addEventListener('click', () => editTransaction(t.Id));
-        row.querySelector('.delete').addEventListener('click', () => deleteTransaction(t.Id));
-        
+
+        if (!isVirtual) {
+            row.querySelector('.edit').addEventListener('click', () => editTransaction(t.Id));
+            row.querySelector('.delete').addEventListener('click', () => deleteTransaction(t.Id));
+        }
+
         container.appendChild(row);
     });
 
