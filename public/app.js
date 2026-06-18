@@ -1451,11 +1451,12 @@ function renderRecentTransactions() {
         const formattedVal = formatCurrency(t.Valor);
         const valClass = t.Tipo === 'Entrada' ? 'tx-val income' : 'tx-val expense';
         const sign = t.Tipo === 'Entrada' ? '+' : '-';
+        const catColors = getCategoryColorStyles(t.Categoria);
         
         row.innerHTML = `
             <td>${formattedDate}</td>
             <td style="font-weight: 500;">${t.Descrição}</td>
-            <td><span class="category-tag"><i data-lucide="${getCategoryIcon(t.Categoria)}"></i> ${t.Categoria}</span></td>
+            <td><span class="category-tag" style="color: ${catColors.solid}; background-color: ${catColors.bg}; border: 1px solid ${catColors.border};"><i data-lucide="${getCategoryIcon(t.Categoria)}" style="color: ${catColors.solid};"></i> ${t.Categoria}</span></td>
             <td><span class="badge badge-recurrence ${t.Recorrência !== 'Única' ? 'active' : ''}">${t.Recorrência}</span></td>
             <td class="${valClass}">${sign} ${formattedVal}</td>
             <td>
@@ -1607,10 +1608,12 @@ function renderTransactionsTable() {
                     <button class="btn-table-action delete" title="Excluir"><i data-lucide="trash-2"></i></button>
                </div></td>`;
 
+        const catColors = getCategoryColorStyles(t.Categoria);
+
         row.innerHTML = `
             <td>${formattedDate}</td>
             <td style="font-weight: 600;">${t.Descrição}</td>
-            <td><span class="category-tag"><i data-lucide="${getCategoryIcon(t.Categoria)}"></i> ${t.Categoria}</span></td>
+            <td><span class="category-tag" style="color: ${catColors.solid}; background-color: ${catColors.bg}; border: 1px solid ${catColors.border};"><i data-lucide="${getCategoryIcon(t.Categoria)}" style="color: ${catColors.solid};"></i> ${t.Categoria}</span></td>
             <td><span class="badge badge-recurrence ${t.Recorrência !== 'Única' ? 'active' : ''}">${t.Recorrência}</span></td>
             <td><span class="${badgeClass}">${t.Tipo}</span></td>
             <td class="${valClass}">${sign} ${formattedVal}</td>
@@ -2464,19 +2467,7 @@ function renderExpensesCategoryChart() {
         return;
     }
 
-    const categoryColors = {
-        "Alimentação": "#fb7185",
-        "Transporte": "#fb923c",
-        "Moradia": "#60a5fa",
-        "Lazer": "#c084fc",
-        "Saúde": "#34d399",
-        "Educação": "#22d3ee",
-        "Investimentos": "#a3e635",
-        "Salário": "#34d399",
-        "Outros": "#9ca3af"
-    };
-
-    const colors = labels.map(label => categoryColors[label] || categoryColors["Outros"]);
+    const colors = labels.map(label => getCategoryColorStyles(label).solid);
 
     AppState.categoryChart = new Chart(ctx, {
         type: 'doughnut',
@@ -2538,6 +2529,44 @@ function formatDateBR(dateStr) {
     if (!dateStr) return '';
     const [year, month, day] = dateStr.split('-');
     return `${day}/${month}/${year}`;
+}
+
+const categoryColorCache = {};
+
+function getCategoryColorStyles(category) {
+    if (categoryColorCache[category]) {
+        return categoryColorCache[category];
+    }
+
+    const defaultColors = {
+        "Alimentação": { solid: "#fb7185", bg: "rgba(251, 113, 133, 0.12)", border: "rgba(251, 113, 133, 0.25)" },
+        "Transporte": { solid: "#fb923c", bg: "rgba(251, 146, 60, 0.12)", border: "rgba(251, 146, 60, 0.25)" },
+        "Moradia": { solid: "#60a5fa", bg: "rgba(96, 165, 250, 0.12)", border: "rgba(96, 165, 250, 0.25)" },
+        "Lazer": { solid: "#c084fc", bg: "rgba(192, 132, 252, 0.12)", border: "rgba(192, 132, 252, 0.25)" },
+        "Saúde": { solid: "#34d399", bg: "rgba(52, 211, 153, 0.12)", border: "rgba(52, 211, 153, 0.25)" },
+        "Educação": { solid: "#22d3ee", bg: "rgba(34, 211, 238, 0.12)", border: "rgba(34, 211, 238, 0.25)" },
+        "Investimentos": { solid: "#a3e635", bg: "rgba(163, 230, 53, 0.12)", border: "rgba(163, 230, 53, 0.25)" },
+        "Salário": { solid: "#10b981", bg: "rgba(16, 185, 129, 0.12)", border: "rgba(16, 185, 129, 0.25)" },
+        "Outros": { solid: "#9ca3af", bg: "rgba(156, 163, 175, 0.12)", border: "rgba(156, 163, 175, 0.25)" }
+    };
+
+    if (defaultColors[category]) {
+        categoryColorCache[category] = defaultColors[category];
+        return defaultColors[category];
+    }
+
+    let hash = 0;
+    for (let i = 0; i < category.length; i++) {
+        hash = category.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    const solid = `hsl(${hue}, 70%, 62%)`;
+    const bg = `hsla(${hue}, 70%, 62%, 0.12)`;
+    const border = `hsla(${hue}, 70%, 62%, 0.25)`;
+
+    const styles = { solid, bg, border };
+    categoryColorCache[category] = styles;
+    return styles;
 }
 
 function getCategoryIcon(category) {
