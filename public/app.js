@@ -1,3 +1,17 @@
+// --- CONFIGURAÇÃO DE AMBIENTE (MOBILE VS WEB) ---
+const isCapacitor = window.hasOwnProperty('Capacitor') || window.location.protocol === 'capacitor:';
+const API_BASE_URL = isCapacitor ? 'https://money.appnab.com.br' : '';
+
+if (API_BASE_URL) {
+    const originalFetch = window.fetch;
+    window.fetch = function (resource, init) {
+        if (typeof resource === 'string' && resource.startsWith('/api/')) {
+            resource = API_BASE_URL + resource;
+        }
+        return originalFetch(resource, init);
+    };
+}
+
 // --- AUTHENTICATION HELPERS ---
 const getAuthToken = () => localStorage.getItem('finvue_token');
 const setAuthToken = (token) => {

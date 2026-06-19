@@ -1,0 +1,16 @@
+{
+  "name": "dinheiro-e-futuro-android",
+  "version": "1.0.0",
+  "description": "Subprojeto Android para Dinheiro & Futuro",
+  "scripts": {
+    "cap": "cap",
+    "sync": "cap sync"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.0.0"
+  }
+}
