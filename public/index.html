@@ -51,6 +51,11 @@
                     <label for="login-password">Senha</label>
                     <input type="password" id="login-password" class="form-control" placeholder="Sua senha..." required>
                 </div>
+
+                <div class="form-group margin-top" id="login-passcode-group" style="display: none;">
+                    <label for="login-passcode">Código de Autorização</label>
+                    <input type="password" id="login-passcode" class="form-control" placeholder="Código de 6 dígitos...">
+                </div>
                 
                 <button type="submit" class="btn btn-primary btn-full margin-top" id="btn-login-submit">
                     <span id="login-btn-text">Entrar</span>
@@ -60,6 +65,10 @@
             
             <div class="login-footer">
                 <p id="login-toggle-text" style="display: none;"></p>
+                <div id="login-custom-toggle" style="margin-top: 10px; font-size: 13px; text-align: center; display: none;">
+                    <span id="login-toggle-label">Não tem uma conta?</span>
+                    <a href="#" id="btn-toggle-register" style="color: var(--primary); font-weight: 500; text-decoration: none; margin-left: 4px;">Cadastre-se</a>
+                </div>
             </div>
         </div>
     </div>
@@ -86,6 +95,10 @@
                 <a href="#forecast" class="nav-item" data-tab="forecast">
                     <i data-lucide="line-chart"></i>
                     <span>Previsões</span>
+                </a>
+                <a href="#credit-cards" class="nav-item" data-tab="credit-cards">
+                    <i data-lucide="credit-card"></i>
+                    <span>Cartões de Crédito</span>
                 </a>
                 <a href="#settings" class="nav-item" data-tab="settings">
                     <i data-lucide="settings"></i>
@@ -389,6 +402,62 @@
                 </div>
             </section>
 
+            <!-- Credit Cards Tab -->
+            <section id="credit-cards" class="tab-content">
+                <div class="section-card">
+                    <div class="card-header border-bottom" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <h3>Meus Cartões de Crédito</h3>
+                        <button class="btn btn-primary btn-small" id="btn-open-credit-card-modal">
+                            <i data-lucide="plus"></i> Cadastrar Cartão
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <p class="empty-state-text" id="empty-credit-cards" style="margin: 40px auto; text-align: center;">Nenhum cartão de crédito cadastrado. Clique no botão acima para cadastrar seu primeiro cartão.</p>
+                        <div class="credit-cards-grid" id="credit-cards-list">
+                            <!-- Dinamicamente preenchido -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalhamento de Transações e Gastos do Cartão Selecionado -->
+                <div class="section-card margin-top" id="credit-card-details-panel" style="display: none;">
+                    <div class="card-header border-bottom" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 id="cc-details-title">Detalhamento do Cartão</h3>
+                        <button class="btn btn-icon" id="btn-close-cc-details" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer;">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="cc-details-container">
+                            <div class="cc-details-chart-col">
+                                <h4 style="margin-bottom: 16px; font-weight: 600; font-size: 14px; color: #ffffff;">Distribuição de Gastos por Categoria</h4>
+                                <div class="cc-chart-wrapper">
+                                    <canvas id="cardExpenseChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="cc-details-tx-col">
+                                <h4 style="margin-bottom: 16px; font-weight: 600; font-size: 14px; color: #ffffff;">Transações Realizadas</h4>
+                                <div class="table-container small-table" style="max-height: 250px; overflow-y: auto;">
+                                    <table class="transaction-table" style="font-size: 13px;">
+                                        <thead>
+                                            <tr>
+                                                <th>Data Compra</th>
+                                                <th>Descrição</th>
+                                                <th>Categoria</th>
+                                                <th>Valor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="card-transactions-list">
+                                            <!-- Dinamicamente preenchido -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Settings Tab -->
             <section id="settings" class="tab-content">
                 <div class="settings-grid">
@@ -600,6 +669,27 @@ DATABASE_URL=postgresql://[usuario]:[senha]@[host]:[porta]/[banco]</pre>
                         <input type="text" id="tx-custom-category" class="form-control" placeholder="Ex: Pet, Presentes, Viagem">
                     </div>
 
+                    <!-- Campos para Forma de Pagamento e Seleção de Cartão -->
+                    <div class="form-row" id="tx-payment-method-row" style="margin-top: 16px;">
+                        <div class="form-group col-6" id="tx-payment-method-group">
+                            <label>Forma de Pagamento</label>
+                            <div class="toggle-switch-group">
+                                <input type="radio" id="tx-payment-method-debit" name="MetodoPagamento" value="Débito" checked>
+                                <label for="tx-payment-method-debit" class="toggle-btn">Débito</label>
+                                
+                                <input type="radio" id="tx-payment-method-credit" name="MetodoPagamento" value="Crédito">
+                                <label for="tx-payment-method-credit" class="toggle-btn">Crédito</label>
+                            </div>
+                        </div>
+                        <div class="form-group col-6" id="tx-card-select-group" style="display: none;">
+                            <label for="tx-card-id">Selecione o Cartão</label>
+                            <select id="tx-card-id" name="CartaoId" class="form-control">
+                                <option value="" disabled selected>Selecione...</option>
+                                <!-- Dinamicamente preenchido -->
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label for="tx-recurrence">Recorrência</label>
                         <select id="tx-recurrence" name="Recorrência" class="form-control" required>
@@ -694,6 +784,76 @@ DATABASE_URL=postgresql://[usuario]:[senha]@[host]:[porta]/[banco]</pre>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" id="btn-close-fd-footer">Fechar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal: Cadastrar Cartão de Crédito -->
+    <div class="modal-overlay" id="credit-card-modal">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3>Novo Cartão de Crédito</h3>
+                <button class="btn-close-modal" id="btn-close-cc-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="credit-card-form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="cc-name">Nome do Cartão</label>
+                        <input type="text" id="cc-name" class="form-control" placeholder="Ex: Meu Roxinho, Black Itaú, Cartão do BB" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="cc-bank">Banco</label>
+                            <select id="cc-bank" class="form-control" required>
+                                <option value="" disabled selected>Selecione...</option>
+                                <option value="nubank">Nubank</option>
+                                <option value="itau">Itaú</option>
+                                <option value="bradesco">Bradesco</option>
+                                <option value="santander">Santander</option>
+                                <option value="banco_do_brasil">Banco do Brasil</option>
+                                <option value="inter">Banco Inter</option>
+                                <option value="c6_bank">C6 Bank</option>
+                                <option value="caixa">Caixa Econômica</option>
+                                <option value="outro">Outro (Personalizar)</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-6" id="cc-custom-bank-name-group" style="display: none;">
+                            <label for="cc-custom-bank-name">Nome do Banco</label>
+                            <input type="text" id="cc-custom-bank-name" class="form-control" placeholder="Ex: Banco Neon, Sicoob">
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="cc-custom-color-group" style="display: none; margin-top: 16px;">
+                        <label for="cc-custom-color">Cor de Fundo do Cartão</label>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                            <input type="color" id="cc-custom-color" class="form-control" value="#1e293b" style="width: 60px; height: 38px; padding: 4px; cursor: pointer;">
+                            <span class="input-tip">Escolha a cor do seu banco personalizado.</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="cc-closing-day">Dia de Fechamento</label>
+                            <input type="number" id="cc-closing-day" class="form-control" min="1" max="31" placeholder="Ex: 5" required>
+                            <span class="input-tip">Dia que a fatura fecha.</span>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="cc-due-day">Dia de Vencimento</label>
+                            <input type="number" id="cc-due-day" class="form-control" min="1" max="31" placeholder="Ex: 12" required>
+                            <span class="input-tip">Dia que a fatura vence.</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-cc-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span>Cadastrar Cartão</span>
+                        <i data-lucide="plus"></i>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

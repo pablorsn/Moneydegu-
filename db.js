@@ -49,6 +49,39 @@ const pool = new Pool({
   ssl: useSsl ? { rejectUnauthorized: false } : false
 });
 
+// Cache de pools para os bancos de dados dos tenants
+const tenantPools = new Map();
+
+export function getTenantPool(dbName) {
+  if (tenantPools.has(dbName)) {
+    return tenantPools.get(dbName);
+  }
+
+  let tenantConnectionString = connectionString;
+  try {
+    const url = new URL(connectionString);
+    url.pathname = `/${dbName}`;
+    tenantConnectionString = url.toString();
+  } catch (e) {
+    const qIndex = connectionString.indexOf('?');
+    let base = qIndex !== -1 ? connectionString.substring(0, qIndex) : connectionString;
+    const lastSlash = base.lastIndexOf('/');
+    if (lastSlash !== -1) {
+      const prefix = base.substring(0, lastSlash + 1);
+      const suffix = qIndex !== -1 ? connectionString.substring(qIndex) : '';
+      tenantConnectionString = prefix + dbName + suffix;
+    }
+  }
+
+  const tenantPool = new Pool({
+    connectionString: tenantConnectionString,
+    ssl: useSsl ? { rejectUnauthorized: false } : false
+  });
+
+  tenantPools.set(dbName, tenantPool);
+  return tenantPool;
+}
+
 export async function initDb() {
   if (!connectionString) {
     console.error("Erro: Não é possível inicializar o banco sem DATABASE_URL.");
@@ -57,7 +90,7 @@ export async function initDb() {
 
   const client = await pool.connect();
   try {
-    console.log("Inicializando tabelas do banco de dados...");
+    console.log("Inicializando tabelas globais do banco de dados (Master)...");
 
     // Tabela de usuarios
     await client.query(`
@@ -79,7 +112,13 @@ export async function initDb() {
       );
     `);
 
-    // Tabela de transacoes
+    // Adicionar colunas parent_user_id e db_name à tabela usuarios para multi-tenancy
+    await client.query(`
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS parent_user_id INT REFERENCES usuarios(id) ON DELETE CASCADE;
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS db_name VARCHAR(100);
+    `);
+
+    // Também inicializamos as tabelas transações/forecast/cartões na master apenas para compatibilidade
     await client.query(`
       CREATE TABLE IF NOT EXISTS transacoes (
         id SERIAL PRIMARY KEY,
@@ -105,10 +144,26 @@ export async function initDb() {
       );
     `);
 
+    // Tabela de cartoes de credito
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS cartoes (
+        id SERIAL PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        nome VARCHAR(100) NOT NULL,
+        vencimento INT NOT NULL CHECK (vencimento >= 1 AND vencimento <= 31),
+        fechamento INT NOT NULL CHECK (fechamento >= 1 AND fechamento <= 31),
+        banco VARCHAR(50) NOT NULL,
+        cor_personalizada VARCHAR(7),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+    `);
+
     // Adicionar coluna usuario_id para isolamento de dados
     await client.query(`
       ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE;
       ALTER TABLE forecast_events ADD COLUMN IF NOT EXISTS usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE;
+      ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS metodo_pagamento VARCHAR(10);
+      ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS cartao_id INT REFERENCES cartoes(id) ON DELETE SET NULL;
     `);
 
     // Atualizar restrição check para aceitar 'Parcelado'
@@ -121,10 +176,70 @@ export async function initDb() {
       console.warn("Aviso ao atualizar restrição de recorrência:", err.message);
     }
 
-    console.log("Banco de dados verificado e pronto para uso.");
+    console.log("Banco de dados master verificado e pronto para uso.");
     return true;
   } catch (error) {
-    console.error("Falha ao inicializar banco de dados:", error);
+    console.error("Falha ao inicializar banco de dados master:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function initTenantDb(dbName) {
+  const tenantPool = getTenantPool(dbName);
+  const client = await tenantPool.connect();
+  try {
+    console.log(`Inicializando tabelas no banco de dados do tenant: ${dbName}...`);
+    
+    // Tabela de cartoes do tenant
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS cartoes (
+        id SERIAL PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        nome VARCHAR(100) NOT NULL,
+        vencimento INT NOT NULL CHECK (vencimento >= 1 AND vencimento <= 31),
+        fechamento INT NOT NULL CHECK (fechamento >= 1 AND fechamento <= 31),
+        banco VARCHAR(50) NOT NULL,
+        cor_personalizada VARCHAR(7),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+    `);
+
+    // Tabela de transacoes do tenant
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS transacoes (
+        id SERIAL PRIMARY KEY,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        data DATE NOT NULL,
+        descricao TEXT NOT NULL,
+        categoria TEXT NOT NULL,
+        valor NUMERIC(12, 2) NOT NULL,
+        tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('Entrada', 'Saída')),
+        recorrencia VARCHAR(10) NOT NULL CHECK (recorrencia IN ('Única', 'Mensal', 'Anual', 'Parcelado')),
+        usuario_id INT NOT NULL,
+        metodo_pagamento VARCHAR(10),
+        cartao_id INT REFERENCES cartoes(id) ON DELETE SET NULL
+      );
+    `);
+
+    // Tabela de forecast_events do tenant
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS forecast_events (
+        id SERIAL PRIMARY KEY,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        description TEXT NOT NULL,
+        amount NUMERIC(12, 2) NOT NULL,
+        type VARCHAR(10) NOT NULL CHECK (type IN ('Entrada', 'Saída')),
+        date VARCHAR(7) NOT NULL,
+        usuario_id INT NOT NULL
+      );
+    `);
+
+    console.log(`Banco de dados do tenant ${dbName} inicializado com sucesso.`);
+    return true;
+  } catch (error) {
+    console.error(`Erro ao inicializar banco de dados do tenant ${dbName}:`, error);
     throw error;
   } finally {
     client.release();

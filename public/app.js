@@ -42,6 +42,7 @@ const AppState = {
     user: null,
     transactions: [],
     forecastEvents: [],
+    creditCards: [],
     isLoading: false,
     isDemoMode: false,
     
@@ -185,6 +186,11 @@ async function checkSetupStatus() {
         loginScreen.classList.add('active');
         appContainer.style.display = 'none';
         
+        const passcodeGroup = document.getElementById('login-passcode-group');
+        const passcodeField = document.getElementById('login-passcode');
+        const customToggle = document.getElementById('login-custom-toggle');
+        const btnToggleRegister = document.getElementById('btn-toggle-register');
+
         if (data.needsSetup) {
             document.getElementById('login-title').innerText = 'Primeiro Acesso';
             document.getElementById('login-subtitle').innerText = 'Crie sua conta de administrador para começar.';
@@ -193,14 +199,27 @@ async function checkSetupStatus() {
             document.getElementById('login-btn-icon').setAttribute('data-lucide', 'user-plus');
             document.getElementById('login-toggle-text').style.display = 'none';
             document.getElementById('login-form').setAttribute('data-mode', 'setup-register');
+            
+            if (passcodeGroup) passcodeGroup.style.display = 'block';
+            if (passcodeField) passcodeField.required = true;
+            if (customToggle) customToggle.style.display = 'none';
         } else {
             document.getElementById('login-title').innerText = 'Fazer Login';
-            document.getElementById('login-subtitle').innerText = 'Acesse seu gestor tempo real.';
+            document.getElementById('login-subtitle').innerText = 'Acesse seu gestor financeiro inteligente.';
             document.getElementById('login-btn-text').innerText = 'Entrar';
             document.getElementById('login-btn-icon').className = '';
             document.getElementById('login-btn-icon').setAttribute('data-lucide', 'log-in');
             document.getElementById('login-toggle-text').style.display = 'none';
             document.getElementById('login-form').setAttribute('data-mode', 'login');
+            
+            if (passcodeGroup) passcodeGroup.style.display = 'none';
+            if (passcodeField) {
+                passcodeField.required = false;
+                passcodeField.value = '';
+            }
+            if (customToggle) customToggle.style.display = 'block';
+            if (btnToggleRegister) btnToggleRegister.innerText = 'Cadastre-se';
+            document.getElementById('login-toggle-label').innerText = 'Não tem uma conta?';
         }
         lucide.createIcons();
     } catch (error) {
@@ -293,6 +312,7 @@ function setupEventListeners() {
     // 2. Modais (Abertura/Fechamento)
     const txModal = document.getElementById('transaction-modal');
     const feModal = document.getElementById('forecast-event-modal');
+    const ccModal = document.getElementById('credit-card-modal');
     
     document.getElementById('btn-open-modal').addEventListener('click', () => {
         document.getElementById('tx-id').value = '';
@@ -306,9 +326,32 @@ function setupEventListeners() {
         document.getElementById('tx-custom-category-group').style.display = 'none';
         document.getElementById('tx-custom-category').value = '';
         document.getElementById('tx-custom-category').required = false;
+
+        // Reset payment method and card inputs
+        const radioDebit = document.getElementById('tx-payment-method-debit');
+        if (radioDebit) radioDebit.checked = true;
+        const txCardIdSelect = document.getElementById('tx-card-id');
+        if (txCardIdSelect) txCardIdSelect.value = '';
+        
+        populateTransactionModalCardsSelect();
+        toggleTransactionFormGroups();
+
         openModal(txModal);
         lucide.createIcons();
     });
+
+    // Eventos para alternância de campos na modal de transações
+    const txTypeExpense = document.getElementById('tx-type-expense');
+    const txTypeIncome = document.getElementById('tx-type-income');
+    const txPaymentMethodDebit = document.getElementById('tx-payment-method-debit');
+    const txPaymentMethodCredit = document.getElementById('tx-payment-method-credit');
+
+    if (txTypeExpense && txTypeIncome && txPaymentMethodDebit && txPaymentMethodCredit) {
+        txTypeExpense.addEventListener('change', toggleTransactionFormGroups);
+        txTypeIncome.addEventListener('change', toggleTransactionFormGroups);
+        txPaymentMethodDebit.addEventListener('change', toggleTransactionFormGroups);
+        txPaymentMethodCredit.addEventListener('change', toggleTransactionFormGroups);
+    }
     document.getElementById('btn-close-modal').addEventListener('click', () => closeModal(txModal));
     document.getElementById('btn-cancel-modal').addEventListener('click', () => closeModal(txModal));
     
@@ -320,16 +363,46 @@ function setupEventListeners() {
     document.getElementById('btn-close-fd-modal').addEventListener('click', () => closeModal(fdModal));
     document.getElementById('btn-close-fd-footer').addEventListener('click', () => closeModal(fdModal));
 
+    // Abertura/Fechamento do Modal de Cartão de Crédito
+    const btnOpenCCModal = document.getElementById('btn-open-credit-card-modal');
+    if (btnOpenCCModal) {
+        btnOpenCCModal.addEventListener('click', () => {
+            openModal(ccModal);
+            document.getElementById('cc-custom-bank-name-group').style.display = 'none';
+            document.getElementById('cc-custom-bank-name').required = false;
+            document.getElementById('cc-custom-color-group').style.display = 'none';
+            lucide.createIcons();
+        });
+    }
+    const btnCloseCCModal = document.getElementById('btn-close-cc-modal');
+    if (btnCloseCCModal) btnCloseCCModal.addEventListener('click', () => closeModal(ccModal));
+    const btnCancelCCModal = document.getElementById('btn-cancel-cc-modal');
+    if (btnCancelCCModal) btnCancelCCModal.addEventListener('click', () => closeModal(ccModal));
+
     // Fechar modais ao clicar fora
     window.addEventListener('click', (e) => {
         if (e.target === txModal) closeModal(txModal);
         if (e.target === feModal) closeModal(feModal);
         if (e.target === fdModal) closeModal(fdModal);
+        if (e.target === ccModal) closeModal(ccModal);
     });
+
+    // Fechamento do Painel de Detalhes do Cartão
+    const btnCloseCCDetails = document.getElementById('btn-close-cc-details');
+    if (btnCloseCCDetails) {
+        btnCloseCCDetails.addEventListener('click', () => {
+            const panel = document.getElementById('credit-card-details-panel');
+            if (panel) panel.style.display = 'none';
+            AppState.selectedCardId = null;
+        });
+    }
 
     // 3. Submissão de Formulários
     document.getElementById('transaction-form').addEventListener('submit', handleTransactionSubmit);
     document.getElementById('forecast-event-form').addEventListener('submit', handleForecastEventSubmit);
+    
+    const ccForm = document.getElementById('credit-card-form');
+    if (ccForm) ccForm.addEventListener('submit', handleCreditCardSubmit);
 
     // Evento de Categoria Personalizada
     const txCategorySelect = document.getElementById('tx-category');
@@ -362,6 +435,28 @@ function setupEventListeners() {
             } else {
                 installmentsGroup.style.display = 'none';
                 installmentsInput.required = false;
+            }
+        });
+    }
+
+    // Evento de Customização de Banco do Cartão de Crédito
+    const ccBankSelect = document.getElementById('cc-bank');
+    const customBankGroup = document.getElementById('cc-custom-bank-name-group');
+    const customBankInput = document.getElementById('cc-custom-bank-name');
+    const customColorGroup = document.getElementById('cc-custom-color-group');
+
+    if (ccBankSelect && customBankGroup && customBankInput && customColorGroup) {
+        ccBankSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'outro') {
+                customBankGroup.style.display = 'block';
+                customBankInput.required = true;
+                customColorGroup.style.display = 'block';
+                customBankInput.focus();
+            } else {
+                customBankGroup.style.display = 'none';
+                customBankInput.required = false;
+                customBankInput.value = '';
+                customColorGroup.style.display = 'none';
             }
         });
     }
@@ -410,6 +505,62 @@ function setupEventListeners() {
     const loginForm = document.getElementById('login-form');
     if (loginForm) loginForm.addEventListener('submit', handleLoginSubmit);
 
+    // Alternador de Cadastro/Login
+    const btnToggleRegister = document.getElementById('btn-toggle-register');
+    if (btnToggleRegister) {
+        btnToggleRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            const form = document.getElementById('login-form');
+            if (!form) return;
+            const currentMode = form.getAttribute('data-mode');
+            const passcodeGroup = document.getElementById('login-passcode-group');
+            const passcodeField = document.getElementById('login-passcode');
+            const errorAlert = document.getElementById('login-error-alert');
+            
+            if (errorAlert) errorAlert.style.display = 'none';
+            
+            if (currentMode === 'login') {
+                form.setAttribute('data-mode', 'register');
+                document.getElementById('login-title').innerText = 'Criar Nova Conta';
+                document.getElementById('login-subtitle').innerText = 'Preencha os dados e o código para criar sua conta.';
+                document.getElementById('login-btn-text').innerText = 'Cadastrar e Entrar';
+                
+                const btnIcon = document.getElementById('login-btn-icon');
+                if (btnIcon) {
+                    btnIcon.className = '';
+                    btnIcon.setAttribute('data-lucide', 'user-plus');
+                }
+                
+                if (passcodeGroup) passcodeGroup.style.display = 'block';
+                if (passcodeField) passcodeField.required = true;
+                
+                document.getElementById('login-toggle-label').innerText = 'Já tem uma conta?';
+                btnToggleRegister.innerText = 'Faça Login';
+            } else {
+                form.setAttribute('data-mode', 'login');
+                document.getElementById('login-title').innerText = 'Fazer Login';
+                document.getElementById('login-subtitle').innerText = 'Acesse seu gestor financeiro inteligente.';
+                document.getElementById('login-btn-text').innerText = 'Entrar';
+                
+                const btnIcon = document.getElementById('login-btn-icon');
+                if (btnIcon) {
+                    btnIcon.className = '';
+                    btnIcon.setAttribute('data-lucide', 'log-in');
+                }
+                
+                if (passcodeGroup) passcodeGroup.style.display = 'none';
+                if (passcodeField) {
+                    passcodeField.required = false;
+                    passcodeField.value = '';
+                }
+                
+                document.getElementById('login-toggle-label').innerText = 'Não tem uma conta?';
+                btnToggleRegister.innerText = 'Cadastre-se';
+            }
+            lucide.createIcons();
+        });
+    }
+
     const logoutBtn = document.getElementById('nav-logout');
     if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
@@ -452,6 +603,12 @@ async function handleLoginSubmit(e) {
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
     
+    let passcode = '';
+    const passcodeField = document.getElementById('login-passcode');
+    if (passcodeField && passcodeField.required) {
+        passcode = passcodeField.value;
+    }
+
     const submitBtn = document.getElementById('btn-login-submit');
     const submitBtnText = document.getElementById('login-btn-text');
     const oldText = submitBtnText.innerText;
@@ -461,14 +618,16 @@ async function handleLoginSubmit(e) {
     
     try {
         let url = '/api/auth/login';
+        const bodyObj = { username, password };
         if (mode === 'register' || mode === 'setup-register') {
             url = '/api/auth/register';
+            bodyObj.passcode = passcode;
         }
         
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify(bodyObj)
         });
         
         const data = await res.json();
@@ -600,7 +759,7 @@ async function handleSettingsRegisterSubmit(e) {
     }
     
     try {
-        const res = await fetch('/api/auth/register', {
+        const res = await apiFetch('/api/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -1000,6 +1159,8 @@ function switchTab(tabId) {
     // Ações específicas ao abrir determinadas abas
     if (tabId === 'dashboard') {
         renderDashboardCharts();
+    } else if (tabId === 'credit-cards') {
+        loadCreditCards();
     }
 }
 
@@ -1048,6 +1209,9 @@ function enableDemoMode() {
 
     const localEvents = localStorage.getItem('finvue_demo_forecast_events');
     AppState.forecastEvents = localEvents ? JSON.parse(localEvents) : [];
+
+    const localCards = localStorage.getItem('finvue_demo_credit_cards');
+    AppState.creditCards = localCards ? JSON.parse(localCards) : [];
 
     updateConnectionStatusUI('demo');
     processAndRefreshUI();
@@ -1099,7 +1263,9 @@ async function loadDataFromServer() {
             Categoria: row.categoria || 'Outros',
             Valor: parseFloat(row.valor) || 0,
             Tipo: row.tipo || 'Saída',
-            Recorrência: row.recorrencia || 'Única'
+            Recorrência: row.recorrencia || 'Única',
+            MetodoPagamento: row.metodo_pagamento || null,
+            CartaoId: row.cartao_id ? parseInt(row.cartao_id) : null
         }));
 
         // 2. Carregar eventos de previsão do backend
@@ -1115,12 +1281,27 @@ async function loadDataFromServer() {
             }));
         }
 
+        // 3. Carregar cartões de crédito do backend
+        const resCards = await apiFetch('/api/credit-cards');
+        if (resCards.ok) {
+            const cardsData = await resCards.json();
+            AppState.creditCards = cardsData.map(row => ({
+                id: row.id,
+                nome: row.nome,
+                vencimento: parseInt(row.vencimento),
+                fechamento: parseInt(row.fechamento),
+                banco: row.banco,
+                cor_personalizada: row.cor_personalizada
+            }));
+        }
+
         AppState.isDemoMode = false;
         updateConnectionStatusUI('online');
         
         // Cacheia localmente para fallback
         localStorage.setItem('finvue_cached_transactions', JSON.stringify(AppState.transactions));
         localStorage.setItem('finvue_cached_forecast_events', JSON.stringify(AppState.forecastEvents));
+        localStorage.setItem('finvue_cached_credit_cards', JSON.stringify(AppState.creditCards));
         
         processAndRefreshUI();
     } catch (error) {
@@ -1131,9 +1312,11 @@ async function loadDataFromServer() {
         // Fallback para cache local de transações
         const cached = localStorage.getItem('finvue_cached_transactions');
         const cachedEvents = localStorage.getItem('finvue_cached_forecast_events');
+        const cachedCards = localStorage.getItem('finvue_cached_credit_cards');
         if (cached) {
             AppState.transactions = JSON.parse(cached);
             AppState.forecastEvents = cachedEvents ? JSON.parse(cachedEvents) : [];
+            AppState.creditCards = cachedCards ? JSON.parse(cachedCards) : [];
             AppState.isDemoMode = false;
             processAndRefreshUI();
         } else {
@@ -1164,7 +1347,9 @@ async function addTransactionToSupabase(transaction) {
                 categoria: transaction.Categoria,
                 valor: transaction.Valor,
                 tipo: transaction.Tipo,
-                recorrencia: transaction.Recorrência
+                recorrencia: transaction.Recorrência,
+                metodo_pagamento: transaction.MetodoPagamento,
+                cartao_id: transaction.CartaoId
             })
         });
 
@@ -1197,7 +1382,9 @@ async function addTransactionToSupabaseSilent(transaction) {
                 categoria: transaction.Categoria,
                 valor: transaction.Valor,
                 tipo: transaction.Tipo,
-                recorrencia: transaction.Recorrência
+                recorrencia: transaction.Recorrência,
+                metodo_pagamento: transaction.MetodoPagamento,
+                cartao_id: transaction.CartaoId
             })
         });
 
@@ -1233,7 +1420,9 @@ async function updateTransactionInSupabase(transaction) {
                 categoria: transaction.Categoria,
                 valor: transaction.Valor,
                 tipo: transaction.Tipo,
-                recorrencia: transaction.Recorrência
+                recorrencia: transaction.Recorrência,
+                metodo_pagamento: transaction.MetodoPagamento,
+                cartao_id: transaction.CartaoId
             })
         });
 
@@ -1368,7 +1557,7 @@ function updateMetricsUI() {
     AppState.transactions.forEach(t => {
         const amount = t.Valor;
         const type = t.Tipo;
-        const dateStr = t.Data;
+        const dateStr = getTransactionEffectiveDate(t);
         const tYearMonth = dateStr.substring(0, 7);
 
         if (tYearMonth <= currentYearMonth) {
@@ -1451,7 +1640,10 @@ function renderRecentTransactions() {
     if (titleEl) titleEl.textContent = `Transações de ${monthLabel}`;
 
     const monthTransactions = AppState.transactions
-        .filter(t => t.Data && t.Data.startsWith(currentYearMonth))
+        .filter(t => {
+            const effDate = getTransactionEffectiveDate(t);
+            return effDate && effDate.startsWith(currentYearMonth);
+        })
         .sort((a, b) => new Date(b.Data) - new Date(a.Data));
 
     if (monthTransactions.length === 0) {
@@ -1514,7 +1706,7 @@ function applyFilters() {
     let realFiltered = AppState.transactions.filter(t => {
         const matchesSearch = t.Descrição.toLowerCase().includes(searchQuery) ||
                               t.Categoria.toLowerCase().includes(searchQuery);
-        const matchesMonth = filterMonth === 'all' || t.Data.startsWith(filterMonth);
+        const matchesMonth = filterMonth === 'all' || getTransactionEffectiveDate(t).startsWith(filterMonth);
         const matchesCategory = filterCategory === 'all' || t.Categoria === filterCategory;
         const matchesType = filterType === 'all' || t.Tipo === filterType;
         return matchesSearch && matchesMonth && matchesCategory && matchesType;
@@ -1523,14 +1715,15 @@ function applyFilters() {
     // Projeção virtual de recorrentes ao filtrar por mês específico
     if (filterMonth !== 'all') {
         AppState.transactions.forEach(t => {
-            const tYearMonth = t.Data.substring(0, 7);
+            const effDate = getTransactionEffectiveDate(t);
+            const tYearMonth = effDate.substring(0, 7);
 
             let shouldProject = false;
             if (t.Recorrência === 'Mensal' && tYearMonth < filterMonth) {
                 shouldProject = true;
             } else if (t.Recorrência === 'Anual' && tYearMonth < filterMonth) {
                 // Só projeta se o mês do ano bater (ex: cadastrado em jan/2025 → projeta em jan/2026)
-                const tMonth = t.Data.substring(5, 7);
+                const tMonth = effDate.substring(5, 7);
                 const filterMonthNum = filterMonth.substring(5, 7);
                 if (tMonth === filterMonthNum) shouldProject = true;
             }
@@ -1665,8 +1858,25 @@ async function handleTransactionSubmit(e) {
     }
 
     const recurrence = formData.get('Recorrência');
+    const tipo = formData.get('Tipo');
     const submitBtn = document.getElementById('btn-submit-tx');
     const oldText = document.getElementById('submit-btn-text').innerText;
+
+    let metodoPagamento = null;
+    let cartaoId = null;
+
+    if (tipo === 'Saída') {
+        metodoPagamento = formData.get('MetodoPagamento') || 'Débito';
+        if (metodoPagamento === 'Crédito') {
+            const cardVal = document.getElementById('tx-card-id').value;
+            cartaoId = cardVal ? parseInt(cardVal) : null;
+            if (!cartaoId) {
+                showToast('Por favor, selecione um cartão de crédito.', 'warning');
+                return;
+            }
+        }
+    }
+
     document.getElementById('submit-btn-text').innerText = 'Gravando...';
     submitBtn.disabled = true;
 
@@ -1679,8 +1889,10 @@ async function handleTransactionSubmit(e) {
                 Descrição: formData.get('Descrição'),
                 Categoria: category,
                 Valor: amount,
-                Tipo: formData.get('Tipo'),
-                Recorrência: recurrence
+                Tipo: tipo,
+                Recorrência: recurrence,
+                MetodoPagamento: metodoPagamento,
+                CartaoId: cartaoId
             };
             success = await updateTransactionInSupabase(tx);
         } else {
@@ -1708,8 +1920,10 @@ async function handleTransactionSubmit(e) {
                         Descrição: installmentDesc,
                         Categoria: category,
                         Valor: installmentVal,
-                        Tipo: formData.get('Tipo'),
-                        Recorrência: 'Parcelado'
+                        Tipo: tipo,
+                        Recorrência: 'Parcelado',
+                        MetodoPagamento: metodoPagamento,
+                        CartaoId: cartaoId
                     };
 
                     if (AppState.isDemoMode) {
@@ -1744,8 +1958,10 @@ async function handleTransactionSubmit(e) {
                     Descrição: formData.get('Descrição'),
                     Categoria: category,
                     Valor: amount,
-                    Tipo: formData.get('Tipo'),
-                    Recorrência: recurrence
+                    Tipo: tipo,
+                    Recorrência: recurrence,
+                    MetodoPagamento: metodoPagamento,
+                    CartaoId: cartaoId
                 };
                 if (AppState.isDemoMode) {
                     const nextId = AppState.transactions.length > 0 ? Math.min(...AppState.transactions.map(t => t.Id)) - 1 : -1;
@@ -1804,7 +2020,15 @@ function editTransaction(id) {
         document.getElementById('tx-type-income').checked = true;
     } else {
         document.getElementById('tx-type-expense').checked = true;
+        const metodo = tx.MetodoPagamento || 'Débito';
+        if (metodo === 'Crédito') {
+            document.getElementById('tx-payment-method-credit').checked = true;
+        } else {
+            document.getElementById('tx-payment-method-debit').checked = true;
+        }
+        populateTransactionModalCardsSelect(tx.CartaoId);
     }
+    toggleTransactionFormGroups();
 
     // Altera título do modal e botão
     document.getElementById('modal-title').innerText = 'Editar Transação';
@@ -2301,7 +2525,7 @@ function renderBalanceEvolutionChart() {
 
     const historicalMonthsSet = new Set();
     sortedChronological.forEach(t => {
-        const m = t.Data.substring(0, 7);
+        const m = getTransactionEffectiveDate(t).substring(0, 7);
         if (m <= currentYearMonth) {
             historicalMonthsSet.add(m);
         }
@@ -2310,7 +2534,7 @@ function renderBalanceEvolutionChart() {
     const historicalMonths = Array.from(historicalMonthsSet).sort();
     
     historicalMonths.forEach(month => {
-        const monthTransactions = AppState.transactions.filter(t => t.Data.startsWith(month));
+        const monthTransactions = AppState.transactions.filter(t => getTransactionEffectiveDate(t).startsWith(month));
         
         let monthNet = 0;
         monthTransactions.forEach(t => {
@@ -2447,7 +2671,7 @@ function renderExpensesCategoryChart() {
     let totalExpensesThisMonth = 0;
 
     AppState.transactions.forEach(t => {
-        const tMonth = t.Data.substring(0, 7);
+        const tMonth = getTransactionEffectiveDate(t).substring(0, 7);
         if (tMonth === currentYearMonth && t.Tipo === 'Saída') {
             categoriesTotals[t.Categoria] = (categoriesTotals[t.Categoria] || 0) + t.Valor;
             totalExpensesThisMonth += t.Valor;
@@ -2668,3 +2892,454 @@ function showConfirmModal({ title = 'Confirmar exclusão', message = 'Tem certez
         overlay.addEventListener('click', onBackdrop);
     });
 }
+
+// ==========================================================================
+// CREDIT CARD SECTION LOGIC (PREMIUM GLASSMORPHIC CARD MANAGER)
+// ==========================================================================
+
+async function loadCreditCards() {
+    if (AppState.isDemoMode) {
+        const localCards = localStorage.getItem('finvue_demo_credit_cards');
+        AppState.creditCards = localCards ? JSON.parse(localCards) : [];
+        renderCreditCards();
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/api/credit-cards');
+        if (!res.ok) throw new Error('Falha ao buscar cartões.');
+        const data = await res.json();
+        AppState.creditCards = data.map(row => ({
+            id: row.id,
+            nome: row.nome,
+            vencimento: parseInt(row.vencimento),
+            fechamento: parseInt(row.fechamento),
+            banco: row.banco,
+            cor_personalizada: row.cor_personalizada
+        }));
+        // Cacheia localmente
+        localStorage.setItem('finvue_cached_credit_cards', JSON.stringify(AppState.creditCards));
+        renderCreditCards();
+    } catch (error) {
+        console.error('Erro ao carregar cartões de crédito:', error);
+        const cached = localStorage.getItem('finvue_cached_credit_cards');
+        if (cached) {
+            AppState.creditCards = JSON.parse(cached);
+            renderCreditCards();
+        } else {
+            AppState.creditCards = [];
+            renderCreditCards();
+        }
+    }
+}
+
+function renderCreditCards() {
+    const grid = document.getElementById('credit-cards-list');
+    const emptyMsg = document.getElementById('empty-credit-cards');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    if (AppState.creditCards.length === 0) {
+        if (emptyMsg) emptyMsg.style.display = 'block';
+        return;
+    }
+
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    AppState.creditCards.forEach(card => {
+        const item = document.createElement('div');
+        
+        // Define as classes do banco
+        const bancoClass = card.banco.toLowerCase().replace(/\s+/g, '_');
+        item.className = `credit-card-item cc-${bancoClass}`;
+        
+        // Se for banco personalizado com cor definida
+        if (card.cor_personalizada) {
+            item.style.background = `linear-gradient(135deg, ${card.cor_personalizada} 0%, rgba(0,0,0,0.85) 100%)`;
+        }
+
+        // Recupera o Logo do Banco
+        const logoHTML = getBankLogoHTML(card.banco);
+
+        item.innerHTML = `
+            <div class="card-header-row">
+                <div class="card-chip-container">
+                    <div class="card-chip"></div>
+                    <div class="card-contactless">
+                        <i data-lucide="wifi"></i>
+                    </div>
+                </div>
+                <div class="card-logo-wrap">
+                    ${logoHTML}
+                </div>
+            </div>
+            <div class="card-body-details">
+                <div class="card-number-display">••••  ••••  ••••  ${1000 + (card.id % 9000)}</div>
+                <div class="card-holder-name">${card.nome}</div>
+                <div class="card-dates-info">
+                    <div class="card-date-col">
+                        <span class="date-label">FECHAMENTO</span>
+                        <span class="date-value">Dia ${String(card.fechamento).padStart(2, '0')}</span>
+                    </div>
+                    <div class="card-date-col">
+                        <span class="date-label">VENCIMENTO</span>
+                        <span class="date-value">Dia ${String(card.vencimento).padStart(2, '0')}</span>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-delete-card" title="Excluir Cartão">
+                <i data-lucide="trash-2"></i>
+            </button>
+        `;
+
+        // Associa ação de clique no cartão para exibir os detalhes
+        item.addEventListener('click', () => {
+            openCreditCardDetails(card.id);
+        });
+
+        // Associa ação de exclusão ao botão
+        const deleteBtn = item.querySelector('.btn-delete-card');
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteCreditCard(card.id, card.nome);
+        });
+
+        grid.appendChild(item);
+    });
+
+    lucide.createIcons();
+}
+
+function getBankLogoHTML(banco) {
+    const b = banco.toLowerCase().trim();
+    switch (b) {
+        case 'nubank':
+            return `<span style="font-family:'Outfit', sans-serif; font-weight:800; font-size: 20px; color:#fff; letter-spacing:-1px;">nu</span>`;
+        case 'itau':
+            return `<div style="background:#ec7000; border-radius:6px; width:45px; height:28px; display:flex; align-items:center; justify-content:center; border:2px solid #ffcc00;"><span style="color:#005ca9; font-weight:bold; font-size:11px; font-family:'Outfit', sans-serif;">Itaú</span></div>`;
+        case 'bradesco':
+            return `<span style="font-weight:800; font-size:15px; font-family:'Outfit', sans-serif; letter-spacing:-0.5px; color:#fff; border-bottom: 2px solid #cc092f;">bradesco</span>`;
+        case 'santander':
+            return `<span style="font-weight:700; font-size:15px; font-family:'Outfit', sans-serif; color:#fff; display:flex; align-items:center; gap:4px;"><i data-lucide="flame" style="width:16px; height:16px; fill:#fff; color:#fff; display:inline-block; vertical-align:middle;"></i>Santander</span>`;
+        case 'banco_do_brasil':
+        case 'banco do brasil':
+            return `<span style="font-weight:800; font-size:12px; color:#fcf800; font-family:'Outfit', sans-serif; letter-spacing:0.5px;">BANCO DO BRASIL</span>`;
+        case 'inter':
+            return `<span style="font-weight:800; font-size:18px; font-family:'Outfit', sans-serif; color:#fff; letter-spacing:-0.5px;">inter</span>`;
+        case 'c6_bank':
+        case 'c6 bank':
+            return `<span style="font-weight:800; font-size:15px; font-family:'Outfit', sans-serif; color:#fff; letter-spacing: 0.5px;">C6 BANK</span>`;
+        case 'caixa':
+            return `<div style="display:flex; align-items:center; gap:2px;"><span style="font-weight:800; font-size:16px; font-family:'Outfit', sans-serif; color:#fff; letter-spacing:-0.5px;">CAIXA</span><span style="color:#ff8c00; font-weight:900; font-size:16px;">X</span></div>`;
+        default:
+            // Custom name or default
+            return `<span style="font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:1px; color:#fff; opacity:0.9;">${banco.substring(0, 15)}</span>`;
+    }
+}
+
+async function handleCreditCardSubmit(e) {
+    e.preventDefault();
+    const nome = document.getElementById('cc-name').value;
+    const bancoSelect = document.getElementById('cc-bank').value;
+    const customBank = document.getElementById('cc-custom-bank-name').value;
+    const vencimento = parseInt(document.getElementById('cc-due-day').value);
+    const fechamento = parseInt(document.getElementById('cc-closing-day').value);
+    const cor_personalizada = document.getElementById('cc-custom-color').value;
+
+    const banco = bancoSelect === 'outro' ? customBank : bancoSelect;
+
+    if (!nome || !banco || isNaN(vencimento) || isNaN(fechamento)) {
+        showToast('Todos os campos obrigatórios devem ser preenchidos.', 'warning');
+        return;
+    }
+
+    const cardData = {
+        nome,
+        banco,
+        vencimento,
+        fechamento,
+        cor_personalizada: bancoSelect === 'outro' ? cor_personalizada : null
+    };
+
+    const ccForm = document.getElementById('credit-card-form');
+    const ccModal = document.getElementById('credit-card-modal');
+
+    if (AppState.isDemoMode) {
+        // Modo Simulação
+        const localCards = localStorage.getItem('finvue_demo_credit_cards');
+        let cards = localCards ? JSON.parse(localCards) : [];
+        const nextId = cards.length > 0 ? Math.max(...cards.map(c => c.id)) + 1 : 1;
+        
+        const newCard = { id: nextId, ...cardData };
+        cards.push(newCard);
+        localStorage.setItem('finvue_demo_credit_cards', JSON.stringify(cards));
+        
+        AppState.creditCards = cards;
+        showToast('Cartão de crédito cadastrado com sucesso (Simulação)!', 'success');
+        closeModal(ccModal);
+        renderCreditCards();
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/api/credit-cards', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cardData)
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Cartão de crédito cadastrado com sucesso!', 'success');
+            closeModal(ccModal);
+            await loadCreditCards();
+        } else {
+            showToast(data.error || 'Erro ao cadastrar cartão.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao cadastrar cartão de crédito:', error);
+        showToast('Erro ao se conectar com o servidor.', 'error');
+    }
+}
+
+async function deleteCreditCard(id, nome) {
+    const confirmed = await showConfirmModal({
+        title: 'Excluir Cartão',
+        message: `Tem certeza que deseja excluir o cartão <strong>"${nome}"</strong>?<br>Esta ação não pode ser desfeita.`
+    });
+    
+    if (!confirmed) return;
+
+    const ccModal = document.getElementById('credit-card-modal');
+
+    if (AppState.isDemoMode) {
+        // Modo Simulação
+        const localCards = localStorage.getItem('finvue_demo_credit_cards');
+        let cards = localCards ? JSON.parse(localCards) : [];
+        cards = cards.filter(c => c.id !== id);
+        localStorage.setItem('finvue_demo_credit_cards', JSON.stringify(cards));
+        
+        AppState.creditCards = cards;
+        showToast('Cartão excluído localmente.', 'success');
+        renderCreditCards();
+        return;
+    }
+
+    try {
+        const res = await apiFetch(`/api/credit-cards/${id}`, {
+            method: 'DELETE'
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Cartão excluído com sucesso!', 'success');
+            await loadCreditCards();
+        } else {
+            showToast(data.error || 'Erro ao excluir cartão.', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao excluir cartão:', error);
+        showToast('Erro ao se conectar com o servidor.', 'error');
+    }
+}
+
+// Helpers adicionais para transações e detalhamento de cartões
+function getTransactionEffectiveDate(t) {
+    if (t.Tipo === 'Saída' && t.MetodoPagamento === 'Crédito' && t.CartaoId) {
+        const card = AppState.creditCards.find(c => c.id === t.CartaoId);
+        if (card) {
+            const [year, month, day] = t.Data.split('-').map(Number);
+            let targetYear = year;
+            let targetMonth = month;
+            if (day > card.fechamento) {
+                targetMonth += 1;
+                if (targetMonth > 12) {
+                    targetMonth = 1;
+                    targetYear += 1;
+                }
+            }
+            return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(card.vencimento).padStart(2, '0')}`;
+        }
+    }
+    return t.Data;
+}
+
+function populateTransactionModalCardsSelect(selectedCardId = null) {
+    const select = document.getElementById('tx-card-id');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="" disabled selected>Selecione...</option>';
+    
+    if (AppState.creditCards.length === 0) {
+        select.innerHTML += '<option value="" disabled>Nenhum cartão cadastrado</option>';
+        return;
+    }
+    
+    AppState.creditCards.forEach(card => {
+        const option = document.createElement('option');
+        option.value = card.id;
+        option.textContent = `${card.nome} (${card.banco.toUpperCase()})`;
+        if (selectedCardId && card.id === selectedCardId) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+}
+
+function toggleTransactionFormGroups() {
+    const isExpense = document.getElementById('tx-type-expense').checked;
+    const paymentMethodRow = document.getElementById('tx-payment-method-row');
+    const cardSelectGroup = document.getElementById('tx-card-select-group');
+    const isCredit = document.getElementById('tx-payment-method-credit').checked;
+
+    if (paymentMethodRow) {
+        paymentMethodRow.style.display = isExpense ? 'flex' : 'none';
+    }
+    
+    if (cardSelectGroup) {
+        cardSelectGroup.style.display = (isExpense && isCredit) ? 'block' : 'none';
+        const cardSelectInput = document.getElementById('tx-card-id');
+        if (cardSelectInput) {
+            cardSelectInput.required = isExpense && isCredit;
+        }
+    }
+}
+
+let cardExpenseChartInstance = null;
+function openCreditCardDetails(cardId) {
+    const card = AppState.creditCards.find(c => c.id === cardId);
+    if (!card) return;
+
+    AppState.selectedCardId = cardId;
+
+    // Exibe o painel
+    const panel = document.getElementById('credit-card-details-panel');
+    if (panel) panel.style.display = 'block';
+
+    // Rola de forma suave até o painel
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Atualiza o título
+    const titleEl = document.getElementById('cc-details-title');
+    if (titleEl) {
+        titleEl.textContent = `Detalhamento: ${card.nome} (${card.banco.toUpperCase()})`;
+    }
+
+    // Filtra as transações deste cartão
+    const cardTx = AppState.transactions.filter(t => t.Tipo === 'Saída' && t.MetodoPagamento === 'Crédito' && t.CartaoId === cardId);
+
+    // Alimenta a tabela de transações do cartão
+    const tbody = document.getElementById('card-transactions-list');
+    if (tbody) {
+        tbody.innerHTML = '';
+        if (cardTx.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state-text" style="padding: 20px;">Nenhuma transação registrada neste cartão.</td></tr>';
+        } else {
+            cardTx.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${formatDateBR(t.Data)}</td>
+                    <td style="font-weight: 500;">${t.Descrição}</td>
+                    <td>${t.Categoria}</td>
+                    <td style="color: var(--danger); font-weight: 600;">- ${formatCurrency(t.Valor)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    }
+
+    // Calcula os gastos por categoria para o gráfico
+    const categoryTotals = {};
+    cardTx.forEach(t => {
+        categoryTotals[t.Categoria] = (categoryTotals[t.Categoria] || 0) + t.Valor;
+    });
+
+    // Renderiza o gráfico rosca
+    renderCardExpenseChart(categoryTotals);
+}
+
+function renderCardExpenseChart(categoryTotals) {
+    const canvas = document.getElementById('cardExpenseChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    
+    if (cardExpenseChartInstance) {
+        cardExpenseChartInstance.destroy();
+    }
+
+    const labels = Object.keys(categoryTotals);
+    const data = Object.values(categoryTotals);
+
+    if (labels.length === 0) {
+        cardExpenseChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Nenhum gasto registrado'],
+                datasets: [{
+                    data: [1],
+                    backgroundColor: ['rgba(255, 255, 255, 0.05)'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+        return;
+    }
+
+    const colors = labels.map(label => getCategoryColorStyles(label).solid);
+
+    cardExpenseChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors,
+                borderWidth: 2,
+                borderColor: '#111726',
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        color: '#9ca3af',
+                        font: { family: 'Inter', size: 11 },
+                        padding: 10
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#ffffff',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            if (label) label += ': ';
+                            if (context.raw !== null) label += formatCurrency(context.raw);
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+

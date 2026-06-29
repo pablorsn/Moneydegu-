@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import pool, { initDb } from './db.js';
+import pool, { initDb, getTenantPool, initTenantDb } from './db.js';
 
 dotenv.config();
 
@@ -57,9 +57,11 @@ async function requireAuth(req, res, next) {
   const token = authHeader.split(' ')[1];
   try {
     const sessionQuery = `
-      SELECT s.token, u.id, u.username 
+      SELECT s.token, u.id, u.username, u.parent_user_id, u.db_name,
+             p.db_name as parent_db_name
       FROM sessoes s
       JOIN usuarios u ON s.usuario_id = u.id
+      LEFT JOIN usuarios p ON u.parent_user_id = p.id
       WHERE s.token = $1
     `;
     const { rows } = await pool.query(sessionQuery, [token]);
@@ -67,10 +69,23 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
     }
 
+    const userRow = rows[0];
+    const mainUserId = userRow.parent_user_id || userRow.id;
+    const dbName = userRow.db_name || userRow.parent_db_name;
+
     req.user = {
-      id: rows[0].id,
-      username: rows[0].username
+      id: userRow.id,
+      username: userRow.username,
+      mainUserId,
+      dbName
     };
+
+    if (dbName) {
+      req.tenantPool = getTenantPool(dbName);
+    } else {
+      req.tenantPool = pool;
+    }
+
     next();
   } catch (error) {
     console.error('Erro de autenticação:', error);
@@ -106,58 +121,75 @@ app.get('/api/auth/setup-status', async (req, res) => {
   }
 });
 
-// 2. Registrar um novo usuário
+// 2. Registrar um novo usuário principal (com banco próprio)
 app.post('/api/auth/register', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, passcode } = req.body;
   if (!username || !password || username.trim() === '' || password.trim() === '') {
     return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
   }
 
+  // Verificar código de autorização
+  if (passcode !== '253545') {
+    return res.status(400).json({ error: 'Código de autorização inválido para criação de conta.' });
+  }
+
   const trimmedUsername = username.trim();
+  let newUser = null;
 
   try {
-    // Verificar se é o primeiro usuário cadastrado
-    const countRes = await pool.query('SELECT COUNT(*) FROM usuarios');
-    const isFirstUser = parseInt(countRes.rows[0].count) === 0;
-
-    // Se não for o primeiro usuário, verificar se usuário já existe
-    if (!isFirstUser) {
-      const existsRes = await pool.query('SELECT 1 FROM usuarios WHERE username = $1', [trimmedUsername]);
-      if (existsRes.rowCount > 0) {
-        return res.status(400).json({ error: 'Nome de usuário já está em uso.' });
-      }
+    // Verificar se usuário já existe
+    const existsRes = await pool.query('SELECT 1 FROM usuarios WHERE username = $1', [trimmedUsername]);
+    if (existsRes.rowCount > 0) {
+      return res.status(400).json({ error: 'Nome de usuário já está em uso.' });
     }
 
     const salt = generateSalt();
     const passwordHash = hashPassword(password, salt);
 
-    // Inserir usuário
+    // Inserir usuário na base global/master
     const insertQuery = `
       INSERT INTO usuarios (username, password_hash, salt)
       VALUES ($1, $2, $3)
       RETURNING id, username
     `;
     const { rows } = await pool.query(insertQuery, [trimmedUsername, passwordHash, salt]);
-    const newUser = rows[0];
+    newUser = rows[0];
 
-    // Se for o primeiro usuário, associar transações e previsões órfãs a ele
-    if (isFirstUser) {
-      await pool.query('UPDATE transacoes SET usuario_id = $1 WHERE usuario_id IS NULL', [newUser.id]);
-      await pool.query('UPDATE forecast_events SET usuario_id = $1 WHERE usuario_id IS NULL', [newUser.id]);
-    }
+    // Criar o banco de dados específico para o usuário
+    const tenantDbName = `dinheiro_db_user_${newUser.id}`;
+    
+    // Tentar criar o banco de dados físico no postgres
+    await pool.query(`CREATE DATABASE ${tenantDbName}`);
+    console.log(`[Multi-tenant] Banco de dados '${tenantDbName}' criado com sucesso para o usuário ${newUser.username}.`);
 
-    // Criar sessão automaticamente
+    // Atualizar a coluna db_name na tabela usuarios master
+    await pool.query('UPDATE usuarios SET db_name = $1 WHERE id = $2', [tenantDbName, newUser.id]);
+
+    // Inicializar as tabelas no banco de dados do novo tenant
+    await initTenantDb(tenantDbName);
+
+    // Criar sessão automaticamente na base master
     const token = generateToken();
     await pool.query('INSERT INTO sessoes (token, usuario_id) VALUES ($1, $2)', [token, newUser.id]);
 
     return res.status(201).json({
-      message: 'Usuário registrado e logado com sucesso!',
+      message: 'Usuário registrado e banco de dados inicializado com sucesso!',
       token,
       user: { id: newUser.id, username: newUser.username }
     });
   } catch (error) {
-    console.error('Erro no registro de usuário:', error);
-    return res.status(500).json({ error: 'Erro ao registrar usuário.' });
+    console.error('Erro no registro de usuário principal:', error);
+    
+    // Rollback do usuário inserido na master se a criação ou inicialização do banco falhar
+    if (newUser && newUser.id) {
+      try {
+        await pool.query('DELETE FROM usuarios WHERE id = $1', [newUser.id]);
+      } catch (delError) {
+        console.error('Erro ao deletar usuário após falha na criação do banco:', delError);
+      }
+    }
+    
+    return res.status(500).json({ error: 'Erro ao registrar usuário principal e inicializar banco de dados.' });
   }
 });
 
@@ -249,14 +281,54 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
   }
 });
 
-// 7. Listar todos os usuários cadastrados
+// 7. Listar todos os usuários da mesma família/tenant
 app.get('/api/users', requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT id, username, created_at FROM usuarios ORDER BY id ASC');
+    const { rows } = await pool.query(
+      'SELECT id, username, parent_user_id, created_at FROM usuarios WHERE id = $1 OR parent_user_id = $1 ORDER BY id ASC',
+      [req.user.mainUserId]
+    );
     return res.json(rows);
   } catch (error) {
     console.error('Erro ao listar usuários:', error);
     return res.status(500).json({ error: 'Erro ao buscar usuários no banco de dados.' });
+  }
+});
+
+// 7.1. Criar um novo sub-usuário vinculado ao usuário ativo
+app.post('/api/users', requireAuth, async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password || username.trim() === '' || password.trim() === '') {
+    return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
+  }
+
+  const trimmedUsername = username.trim();
+
+  try {
+    // Verificar se o nome de usuário já existe na master
+    const existsRes = await pool.query('SELECT 1 FROM usuarios WHERE username = $1', [trimmedUsername]);
+    if (existsRes.rowCount > 0) {
+      return res.status(400).json({ error: 'Nome de usuário já está em uso.' });
+    }
+
+    const salt = generateSalt();
+    const passwordHash = hashPassword(password, salt);
+
+    // Inserir sub-user vinculando ao mainUserId
+    const insertQuery = `
+      INSERT INTO usuarios (username, password_hash, salt, parent_user_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, username, parent_user_id
+    `;
+    const { rows } = await pool.query(insertQuery, [trimmedUsername, passwordHash, salt, req.user.mainUserId]);
+    
+    return res.status(201).json({
+      message: 'Sub-usuário criado com sucesso!',
+      user: rows[0]
+    });
+  } catch (error) {
+    console.error('Erro ao criar sub-usuário:', error);
+    return res.status(500).json({ error: 'Erro ao criar sub-usuário.' });
   }
 });
 
@@ -270,6 +342,15 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
   }
   
   try {
+    // Verificar se o usuário pertence à mesma família/tenant
+    const userCheck = await pool.query(
+      'SELECT id FROM usuarios WHERE id = $1 AND (id = $2 OR parent_user_id = $2)',
+      [id, req.user.mainUserId]
+    );
+    if (userCheck.rowCount === 0) {
+      return res.status(403).json({ error: 'Você não tem permissão para editar este usuário.' });
+    }
+
     // Verificar se o nome de usuário já existe para outro id
     const existsRes = await pool.query('SELECT id FROM usuarios WHERE username = $1 AND id != $2', [username.trim(), id]);
     if (existsRes.rowCount > 0) {
@@ -306,7 +387,7 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
   }
 });
 
-// 9. Excluir um usuário
+// 9. Excluir um usuário da família
 app.delete('/api/users/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   
@@ -315,9 +396,12 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
   }
   
   try {
-    const { rows } = await pool.query('DELETE FROM usuarios WHERE id = $1 RETURNING id');
+    // Garantir exclusão apenas se for sub-usuário do mainUserId ativo
+    const deleteQuery = 'DELETE FROM usuarios WHERE id = $1 AND parent_user_id = $2 RETURNING id';
+    const { rows } = await pool.query(deleteQuery, [id, req.user.mainUserId]);
+    
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Usuário não encontrado.' });
+      return res.status(404).json({ error: 'Usuário não encontrado ou sem permissão para exclusão.' });
     }
     return res.json({ message: 'Usuário excluído com sucesso.' });
   } catch (error) {
@@ -339,12 +423,14 @@ app.get('/api/transactions', requireAuth, async (req, res) => {
         categoria, 
         valor, 
         tipo, 
-        recorrencia 
+        recorrencia,
+        metodo_pagamento,
+        cartao_id
       FROM transacoes 
       WHERE usuario_id = $1
       ORDER BY data DESC, id DESC
     `;
-    const { rows } = await pool.query(query, [req.user.id]);
+    const { rows } = await req.tenantPool.query(query, [req.user.mainUserId]);
     return res.json(rows);
   } catch (error) {
     console.error("Erro ao listar transações:", error);
@@ -354,7 +440,7 @@ app.get('/api/transactions', requireAuth, async (req, res) => {
 
 // 2. Criar uma nova transação
 app.post('/api/transactions', requireAuth, async (req, res) => {
-  const { data, descricao, categoria, valor, tipo, recorrencia } = req.body;
+  const { data, descricao, categoria, valor, tipo, recorrencia, metodo_pagamento, cartao_id } = req.body;
 
   if (!data || !descricao || !categoria || valor === undefined || !tipo || !recorrencia) {
     return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
@@ -362,12 +448,12 @@ app.post('/api/transactions', requireAuth, async (req, res) => {
 
   try {
     const query = `
-      INSERT INTO transacoes (data, descricao, categoria, valor, tipo, recorrencia, usuario_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, to_char(data, 'YYYY-MM-DD') as data, descricao, categoria, valor, tipo, recorrencia
+      INSERT INTO transacoes (data, descricao, categoria, valor, tipo, recorrencia, metodo_pagamento, cartao_id, usuario_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id, to_char(data, 'YYYY-MM-DD') as data, descricao, categoria, valor, tipo, recorrencia, metodo_pagamento, cartao_id
     `;
-    const values = [data, descricao, categoria, valor, tipo, recorrencia, req.user.id];
-    const { rows } = await pool.query(query, values);
+    const values = [data, descricao, categoria, valor, tipo, recorrencia, metodo_pagamento || null, cartao_id || null, req.user.mainUserId];
+    const { rows } = await req.tenantPool.query(query, values);
     return res.status(201).json(rows[0]);
   } catch (error) {
     console.error("Erro ao criar transação:", error);
@@ -378,7 +464,7 @@ app.post('/api/transactions', requireAuth, async (req, res) => {
 // 3. Atualizar uma transação existente
 app.put('/api/transactions/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { data, descricao, categoria, valor, tipo, recorrencia } = req.body;
+  const { data, descricao, categoria, valor, tipo, recorrencia, metodo_pagamento, cartao_id } = req.body;
 
   if (!data || !descricao || !categoria || valor === undefined || !tipo || !recorrencia) {
     return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
@@ -387,12 +473,12 @@ app.put('/api/transactions/:id', requireAuth, async (req, res) => {
   try {
     const query = `
       UPDATE transacoes 
-      SET data = $1, descricao = $2, categoria = $3, valor = $4, tipo = $5, recorrencia = $6
-      WHERE id = $7 AND usuario_id = $8
-      RETURNING id, to_char(data, 'YYYY-MM-DD') as data, descricao, categoria, valor, tipo, recorrencia
+      SET data = $1, descricao = $2, categoria = $3, valor = $4, tipo = $5, recorrencia = $6, metodo_pagamento = $7, cartao_id = $8
+      WHERE id = $9 AND usuario_id = $10
+      RETURNING id, to_char(data, 'YYYY-MM-DD') as data, descricao, categoria, valor, tipo, recorrencia, metodo_pagamento, cartao_id
     `;
-    const values = [data, descricao, categoria, valor, tipo, recorrencia, id, req.user.id];
-    const { rows } = await pool.query(query, values);
+    const values = [data, descricao, categoria, valor, tipo, recorrencia, metodo_pagamento || null, cartao_id || null, id, req.user.mainUserId];
+    const { rows } = await req.tenantPool.query(query, values);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Transação não encontrada ou acesso negado.' });
@@ -411,7 +497,7 @@ app.delete('/api/transactions/:id', requireAuth, async (req, res) => {
 
   try {
     const query = 'DELETE FROM transacoes WHERE id = $1 AND usuario_id = $2 RETURNING id';
-    const { rows } = await pool.query(query, [id, req.user.id]);
+    const { rows } = await req.tenantPool.query(query, [id, req.user.mainUserId]);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Transação não encontrada ou acesso negado.' });
@@ -430,7 +516,7 @@ app.delete('/api/transactions/:id', requireAuth, async (req, res) => {
 app.get('/api/forecast-events', requireAuth, async (req, res) => {
   try {
     const query = 'SELECT id, description, amount, type, date FROM forecast_events WHERE usuario_id = $1 ORDER BY date ASC, id ASC';
-    const { rows } = await pool.query(query, [req.user.id]);
+    const { rows } = await req.tenantPool.query(query, [req.user.mainUserId]);
     return res.json(rows);
   } catch (error) {
     console.error("Erro ao listar eventos de projeção:", error);
@@ -452,8 +538,8 @@ app.post('/api/forecast-events', requireAuth, async (req, res) => {
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, description, amount, type, date
     `;
-    const values = [description, amount, type, date, req.user.id];
-    const { rows } = await pool.query(query, values);
+    const values = [description, amount, type, date, req.user.mainUserId];
+    const { rows } = await req.tenantPool.query(query, values);
     return res.status(201).json(rows[0]);
   } catch (error) {
     console.error("Erro ao criar evento planejado:", error);
@@ -467,7 +553,7 @@ app.delete('/api/forecast-events/:id', requireAuth, async (req, res) => {
 
   try {
     const query = 'DELETE FROM forecast_events WHERE id = $1 AND usuario_id = $2 RETURNING id';
-    const { rows } = await pool.query(query, [id, req.user.id]);
+    const { rows } = await req.tenantPool.query(query, [id, req.user.mainUserId]);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Evento planejado não encontrado ou acesso negado.' });
@@ -477,6 +563,74 @@ app.delete('/api/forecast-events/:id', requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Erro ao excluir evento planejado:", error);
     return res.status(500).json({ error: 'Erro ao excluir evento planejado.' });
+  }
+});
+
+// --- API ROTAS PARA CARTÕES DE CRÉDITO ---
+
+// 1. Listar todos os cartões do usuário
+app.get('/api/credit-cards', requireAuth, async (req, res) => {
+  try {
+    const query = `
+      SELECT id, nome, vencimento, fechamento, banco, cor_personalizada
+      FROM cartoes
+      WHERE usuario_id = $1
+      ORDER BY nome ASC, id ASC
+    `;
+    const { rows } = await req.tenantPool.query(query, [req.user.mainUserId]);
+    return res.json(rows);
+  } catch (error) {
+    console.error("Erro ao listar cartões de crédito:", error);
+    return res.status(500).json({ error: 'Erro ao buscar cartões de crédito.' });
+  }
+});
+
+// 2. Criar/cadastrar um novo cartão
+app.post('/api/credit-cards', requireAuth, async (req, res) => {
+  const { nome, vencimento, fechamento, banco, cor_personalizada } = req.body;
+
+  if (!nome || vencimento === undefined || fechamento === undefined || !banco) {
+    return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
+  }
+
+  const venc = parseInt(vencimento);
+  const fech = parseInt(fechamento);
+
+  if (isNaN(venc) || venc < 1 || venc > 31 || isNaN(fech) || fech < 1 || fech > 31) {
+    return res.status(400).json({ error: 'Os dias de vencimento e fechamento devem estar entre 1 e 31.' });
+  }
+
+  try {
+    const query = `
+      INSERT INTO cartoes (nome, vencimento, fechamento, banco, cor_personalizada, usuario_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, nome, vencimento, fechamento, banco, cor_personalizada
+    `;
+    const values = [nome.trim(), venc, fech, banco, cor_personalizada || null, req.user.mainUserId];
+    const { rows } = await req.tenantPool.query(query, values);
+    return res.status(201).json(rows[0]);
+  } catch (error) {
+    console.error("Erro ao criar cartão de crédito:", error);
+    return res.status(500).json({ error: 'Erro ao salvar cartão de crédito no banco de dados.' });
+  }
+});
+
+// 3. Excluir um cartão de crédito
+app.delete('/api/credit-cards/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const query = 'DELETE FROM cartoes WHERE id = $1 AND usuario_id = $2 RETURNING id';
+    const { rows } = await req.tenantPool.query(query, [id, req.user.mainUserId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Cartão de crédito não encontrado ou acesso negado.' });
+    }
+
+    return res.json({ success: true, message: 'Cartão de crédito excluído com sucesso.' });
+  } catch (error) {
+    console.error("Erro ao excluir cartão de crédito:", error);
+    return res.status(500).json({ error: 'Erro ao excluir cartão de crédito.' });
   }
 });
 
