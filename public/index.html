@@ -791,12 +791,13 @@ DATABASE_URL=postgresql://[usuario]:[senha]@[host]:[porta]/[banco]</pre>
     <div class="modal-overlay" id="credit-card-modal">
         <div class="modal-card" style="max-width: 480px;">
             <div class="modal-header">
-                <h3>Novo Cartão de Crédito</h3>
+                <h3 id="cc-modal-title">Novo Cartão de Crédito</h3>
                 <button class="btn-close-modal" id="btn-close-cc-modal">
                     <i data-lucide="x"></i>
                 </button>
             </div>
             <form id="credit-card-form">
+                <input type="hidden" id="cc-id" value="">
                 <div class="modal-body">
                     <div class="form-group">
                         <label for="cc-name">Nome do Cartão</label>
@@ -848,9 +849,9 @@ DATABASE_URL=postgresql://[usuario]:[senha]@[host]:[porta]/[banco]</pre>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" id="btn-cancel-cc-modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">
-                        <span>Cadastrar Cartão</span>
-                        <i data-lucide="plus"></i>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-cc">
+                        <span id="submit-cc-btn-text">Cadastrar Cartão</span>
+                        <i data-lucide="plus" id="submit-cc-btn-icon"></i>
                     </button>
                 </div>
             </form>

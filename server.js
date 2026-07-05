@@ -615,6 +615,7 @@ app.post('/api/credit-cards', requireAuth, async (req, res) => {
   }
 });
 
+
 // 3. Excluir um cartão de crédito
 app.delete('/api/credit-cards/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
@@ -633,6 +634,44 @@ app.delete('/api/credit-cards/:id', requireAuth, async (req, res) => {
     return res.status(500).json({ error: 'Erro ao excluir cartão de crédito.' });
   }
 });
+
+// 4. Editar um cartão de crédito
+app.put('/api/credit-cards/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { nome, vencimento, fechamento, banco, cor_personalizada } = req.body;
+
+  if (!nome || vencimento === undefined || fechamento === undefined || !banco) {
+    return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
+  }
+
+  const venc = parseInt(vencimento);
+  const fech = parseInt(fechamento);
+
+  if (isNaN(venc) || venc < 1 || venc > 31 || isNaN(fech) || fech < 1 || fech > 31) {
+    return res.status(400).json({ error: 'Os dias de vencimento e fechamento devem estar entre 1 e 31.' });
+  }
+
+  try {
+    const query = `
+      UPDATE cartoes
+      SET nome = $1, vencimento = $2, fechamento = $3, banco = $4, cor_personalizada = $5
+      WHERE id = $6 AND usuario_id = $7
+      RETURNING id, nome, vencimento, fechamento, banco, cor_personalizada
+    `;
+    const values = [nome.trim(), venc, fech, banco, cor_personalizada || null, id, req.user.mainUserId];
+    const { rows } = await req.tenantPool.query(query, values);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Cartão de crédito não encontrado ou acesso negado.' });
+    }
+
+    return res.json(rows[0]);
+  } catch (error) {
+    console.error("Erro ao atualizar cartão de crédito:", error);
+    return res.status(500).json({ error: 'Erro ao atualizar cartão de crédito no banco de dados.' });
+  }
+});
+
 
 
 // Servir os arquivos estáticos do frontend (HTML, CSS, JS) da pasta public

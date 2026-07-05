@@ -367,6 +367,24 @@ function setupEventListeners() {
     const btnOpenCCModal = document.getElementById('btn-open-credit-card-modal');
     if (btnOpenCCModal) {
         btnOpenCCModal.addEventListener('click', () => {
+            const ccFormEl = document.getElementById('credit-card-form');
+            if (ccFormEl) ccFormEl.reset();
+
+            const ccIdEl = document.getElementById('cc-id');
+            if (ccIdEl) ccIdEl.value = '';
+
+            const ccModalTitle = document.getElementById('cc-modal-title');
+            if (ccModalTitle) ccModalTitle.innerText = 'Novo Cartão de Crédito';
+
+            const ccSubmitText = document.getElementById('submit-cc-btn-text');
+            if (ccSubmitText) ccSubmitText.innerText = 'Cadastrar Cartão';
+
+            const ccSubmitIcon = document.getElementById('submit-cc-btn-icon');
+            if (ccSubmitIcon) {
+                ccSubmitIcon.className = '';
+                ccSubmitIcon.setAttribute('data-lucide', 'plus');
+            }
+
             openModal(ccModal);
             document.getElementById('cc-custom-bank-name-group').style.display = 'none';
             document.getElementById('cc-custom-bank-name').required = false;
@@ -1474,6 +1492,7 @@ function processAndRefreshUI() {
     applyFilters();
     calculateForecastAndRender();
     renderDashboardCharts();
+    renderCreditCards();
 }
 
 function populateFilterDropdowns() {
@@ -2974,6 +2993,9 @@ function renderCreditCards() {
                     </div>
                 </div>
             </div>
+            <button class="btn-edit-card" title="Editar Cartão">
+                <i data-lucide="edit-3"></i>
+            </button>
             <button class="btn-delete-card" title="Excluir Cartão">
                 <i data-lucide="trash-2"></i>
             </button>
@@ -2989,6 +3011,13 @@ function renderCreditCards() {
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             deleteCreditCard(card.id, card.nome);
+        });
+
+        // Associa ação de edição ao botão
+        const editBtn = item.querySelector('.btn-edit-card');
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            editCreditCard(card.id);
         });
 
         grid.appendChild(item);
@@ -3024,8 +3053,73 @@ function getBankLogoHTML(banco) {
     }
 }
 
+function editCreditCard(id) {
+    const card = AppState.creditCards.find(c => c.id === id);
+    if (!card) {
+        showToast('Cartão de crédito não encontrado.', 'error');
+        return;
+    }
+
+    // Preenche os campos do formulário
+    document.getElementById('cc-id').value = card.id;
+    document.getElementById('cc-name').value = card.nome;
+    
+    const selectEl = document.getElementById('cc-bank');
+    const customBankGroup = document.getElementById('cc-custom-bank-name-group');
+    const customBankInput = document.getElementById('cc-custom-bank-name');
+    const customColorGroup = document.getElementById('cc-custom-color-group');
+    
+    const standardBanks = ["nubank", "itau", "bradesco", "santander", "banco_do_brasil", "inter", "c6_bank", "caixa"];
+    const bankVal = card.banco.toLowerCase().replace(/\s+/g, '_');
+    
+    let matchedStandard = false;
+    for (const std of standardBanks) {
+        if (std === bankVal || std.replace('_', ' ') === bankVal) {
+            selectEl.value = std;
+            matchedStandard = true;
+            break;
+        }
+    }
+    
+    if (matchedStandard) {
+        customBankGroup.style.display = 'none';
+        customBankInput.value = '';
+        customBankInput.required = false;
+        customColorGroup.style.display = 'none';
+    } else {
+        selectEl.value = 'outro';
+        customBankGroup.style.display = 'block';
+        customBankInput.value = card.banco;
+        customBankInput.required = true;
+        customColorGroup.style.display = 'block';
+        if (card.cor_personalizada) {
+            document.getElementById('cc-custom-color').value = card.cor_personalizada;
+        }
+    }
+
+    document.getElementById('cc-closing-day').value = card.fechamento;
+    document.getElementById('cc-due-day').value = card.vencimento;
+
+    // Altera título do modal e botão
+    const modalTitle = document.getElementById('cc-modal-title');
+    if (modalTitle) modalTitle.innerText = 'Editar Cartão de Crédito';
+    
+    const submitText = document.getElementById('submit-cc-btn-text');
+    if (submitText) submitText.innerText = 'Salvar';
+    
+    const submitIcon = document.getElementById('submit-cc-btn-icon');
+    if (submitIcon) {
+        submitIcon.className = '';
+        submitIcon.setAttribute('data-lucide', 'check');
+    }
+
+    openModal(document.getElementById('credit-card-modal'));
+    lucide.createIcons();
+}
+
 async function handleCreditCardSubmit(e) {
     e.preventDefault();
+    const id = document.getElementById('cc-id').value;
     const nome = document.getElementById('cc-name').value;
     const bancoSelect = document.getElementById('cc-bank').value;
     const customBank = document.getElementById('cc-custom-bank-name').value;
@@ -3048,44 +3142,78 @@ async function handleCreditCardSubmit(e) {
         cor_personalizada: bancoSelect === 'outro' ? cor_personalizada : null
     };
 
-    const ccForm = document.getElementById('credit-card-form');
     const ccModal = document.getElementById('credit-card-modal');
 
-    if (AppState.isDemoMode) {
-        // Modo Simulação
-        const localCards = localStorage.getItem('finvue_demo_credit_cards');
-        let cards = localCards ? JSON.parse(localCards) : [];
-        const nextId = cards.length > 0 ? Math.max(...cards.map(c => c.id)) + 1 : 1;
-        
-        const newCard = { id: nextId, ...cardData };
-        cards.push(newCard);
-        localStorage.setItem('finvue_demo_credit_cards', JSON.stringify(cards));
-        
-        AppState.creditCards = cards;
-        showToast('Cartão de crédito cadastrado com sucesso (Simulação)!', 'success');
-        closeModal(ccModal);
-        renderCreditCards();
-        return;
-    }
-
-    try {
-        const res = await apiFetch('/api/credit-cards', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cardData)
-        });
-
-        const data = await res.json();
-        if (res.ok) {
-            showToast('Cartão de crédito cadastrado com sucesso!', 'success');
+    if (id) {
+        // MODO EDICAO
+        if (AppState.isDemoMode) {
+            // Modo Simulação
+            AppState.creditCards = AppState.creditCards.map(c => c.id === parseInt(id) ? { ...c, ...cardData } : c);
+            localStorage.setItem('finvue_demo_credit_cards', JSON.stringify(AppState.creditCards));
+            showToast('Cartão de crédito atualizado com sucesso (Simulação)!', 'success');
             closeModal(ccModal);
-            await loadCreditCards();
-        } else {
-            showToast(data.error || 'Erro ao cadastrar cartão.', 'error');
+            renderCreditCards();
+            processAndRefreshUI();
+            return;
         }
-    } catch (error) {
-        console.error('Erro ao cadastrar cartão de crédito:', error);
-        showToast('Erro ao se conectar com o servidor.', 'error');
+
+        try {
+            const res = await apiFetch(`/api/credit-cards/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cardData)
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showToast('Cartão de crédito atualizado com sucesso!', 'success');
+                closeModal(ccModal);
+                await loadDataFromServer();
+            } else {
+                showToast(data.error || 'Erro ao atualizar cartão.', 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar cartão de crédito:', error);
+            showToast('Erro ao se conectar com o servidor.', 'error');
+        }
+    } else {
+        // MODO CADASTRO
+        if (AppState.isDemoMode) {
+            // Modo Simulação
+            const localCards = localStorage.getItem('finvue_demo_credit_cards');
+            let cards = localCards ? JSON.parse(localCards) : [];
+            const nextId = cards.length > 0 ? Math.max(...cards.map(c => c.id)) + 1 : 1;
+            
+            const newCard = { id: nextId, ...cardData };
+            cards.push(newCard);
+            localStorage.setItem('finvue_demo_credit_cards', JSON.stringify(cards));
+            
+            AppState.creditCards = cards;
+            showToast('Cartão de crédito cadastrado com sucesso (Simulação)!', 'success');
+            closeModal(ccModal);
+            renderCreditCards();
+            return;
+        }
+
+        try {
+            const res = await apiFetch('/api/credit-cards', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cardData)
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showToast('Cartão de crédito cadastrado com sucesso!', 'success');
+                closeModal(ccModal);
+                await loadCreditCards();
+            } else {
+                showToast(data.error || 'Erro ao cadastrar cartão.', 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao cadastrar cartão de crédito:', error);
+            showToast('Erro ao se conectar com o servidor.', 'error');
+        }
     }
 }
 

@@ -2193,6 +2193,46 @@ input[type="hidden"] {
     height: 14px;
 }
 
+/* Botão de Editar Cartão (Estilo Glass Blue) */
+.btn-edit-card {
+    position: absolute;
+    top: 14px;
+    right: 52px;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+    opacity: 0;
+    transform: scale(0.8);
+    z-index: 3;
+}
+
+.credit-card-item:hover .btn-edit-card {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.btn-edit-card:hover {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.45);
+    color: #93c5fd;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+.btn-edit-card i {
+    width: 14px;
+    height: 14px;
+}
+
 /* ==========================================================================
    BANK SPECIFIC CARD DESIGN / GRADIENTS
    ========================================================================== */
