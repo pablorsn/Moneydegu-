@@ -1554,28 +1554,36 @@ function updateMetricsUI() {
     let prevMonthExpense = 0;
     let totalBalance = 0;
 
+    // 1. Calcula receitas e despesas do mês atual
+    const currentMonthTx = getTransactionsForMonth(currentYearMonth);
+    currentMonthTx.forEach(t => {
+        if (t.Tipo === 'Entrada') currentMonthIncome += t.Valor;
+        else currentMonthExpense += t.Valor;
+    });
+
+    // 2. Calcula receitas e despesas do mês anterior
+    const prevMonthTx = getTransactionsForMonth(prevYearMonth);
+    prevMonthTx.forEach(t => {
+        if (t.Tipo === 'Entrada') prevMonthIncome += t.Valor;
+        else prevMonthExpense += t.Valor;
+    });
+
+    // 3. Calcula saldo acumulado (incluindo transações reais e virtuais projetadas até o mês atual)
+    let earliestMonth = currentYearMonth;
     AppState.transactions.forEach(t => {
-        const amount = t.Valor;
-        const type = t.Tipo;
-        const dateStr = getTransactionEffectiveDate(t);
-        const tYearMonth = dateStr.substring(0, 7);
-
-        if (tYearMonth <= currentYearMonth) {
-            if (type === 'Entrada') totalBalance += amount;
-            else totalBalance -= amount;
-        } else {
-            console.log("updateMetricsUI -> Ignorando do Saldo Atual (Futuro):", t.Descrição, t.Data, "tYearMonth:", tYearMonth);
+        const m = getTransactionEffectiveDate(t).substring(0, 7);
+        if (m < earliestMonth) {
+            earliestMonth = m;
         }
+    });
 
-        if (tYearMonth === currentYearMonth) {
-            if (type === 'Entrada') currentMonthIncome += amount;
-            else currentMonthExpense += amount;
-        }
-
-        if (tYearMonth === prevYearMonth) {
-            if (type === 'Entrada') prevMonthIncome += amount;
-            else prevMonthExpense += amount;
-        }
+    const monthsRange = getMonthsInRange(earliestMonth, currentYearMonth);
+    monthsRange.forEach(m => {
+        const monthTx = getTransactionsForMonth(m);
+        monthTx.forEach(t => {
+            if (t.Tipo === 'Entrada') totalBalance += t.Valor;
+            else totalBalance -= t.Valor;
+        });
     });
 
     document.getElementById('metric-income').innerText = formatCurrency(currentMonthIncome);
@@ -1639,11 +1647,7 @@ function renderRecentTransactions() {
     const monthLabel = `${monthNames[now.getMonth()]} de ${now.getFullYear()}`;
     if (titleEl) titleEl.textContent = `Transações de ${monthLabel}`;
 
-    const monthTransactions = AppState.transactions
-        .filter(t => {
-            const effDate = getTransactionEffectiveDate(t);
-            return effDate && effDate.startsWith(currentYearMonth);
-        })
+    const monthTransactions = getTransactionsForMonth(currentYearMonth)
         .sort((a, b) => new Date(b.Data) - new Date(a.Data));
 
     if (monthTransactions.length === 0) {
@@ -1653,28 +1657,35 @@ function renderRecentTransactions() {
 
     monthTransactions.forEach(t => {
         const row = document.createElement('tr');
+        const isVirtual = !!t._virtual;
+        if (isVirtual) row.classList.add('tx-virtual');
+
         const formattedDate = formatDateBR(t.Data);
         const formattedVal = formatCurrency(t.Valor);
         const valClass = t.Tipo === 'Entrada' ? 'tx-val income' : 'tx-val expense';
         const sign = t.Tipo === 'Entrada' ? '+' : '-';
         const catColors = getCategoryColorStyles(t.Categoria);
         
+        const actionsCell = isVirtual
+            ? `<td><div class="table-actions"><span class="badge-projected" title="Recorrência projetada automaticamente">↺ Recorrente</span></div></td>`
+            : `<td><div class="table-actions">
+                    <button class="btn-table-action edit" title="Editar"><i data-lucide="edit-3"></i></button>
+                    <button class="btn-table-action delete" title="Excluir"><i data-lucide="trash-2"></i></button>
+               </div></td>`;
+
         row.innerHTML = `
             <td>${formattedDate}</td>
             <td style="font-weight: 500;">${t.Descrição}</td>
             <td><span class="category-tag" style="color: ${catColors.solid}; background-color: ${catColors.bg}; border: 1px solid ${catColors.border};"><i data-lucide="${getCategoryIcon(t.Categoria)}" style="color: ${catColors.solid};"></i> ${t.Categoria}</span></td>
             <td><span class="badge badge-recurrence ${t.Recorrência !== 'Única' ? 'active' : ''}">${t.Recorrência}</span></td>
             <td class="${valClass}">${sign} ${formattedVal}</td>
-            <td>
-                <div class="table-actions">
-                    <button class="btn-table-action edit" title="Editar"><i data-lucide="edit-3"></i></button>
-                    <button class="btn-table-action delete" title="Excluir"><i data-lucide="trash-2"></i></button>
-                </div>
-            </td>
+            ${actionsCell}
         `;
         
-        row.querySelector('.edit').addEventListener('click', () => editTransaction(t.Id));
-        row.querySelector('.delete').addEventListener('click', () => deleteTransaction(t.Id));
+        if (!isVirtual) {
+            row.querySelector('.edit').addEventListener('click', () => editTransaction(t.Id));
+            row.querySelector('.delete').addEventListener('click', () => deleteTransaction(t.Id));
+        }
         
         container.appendChild(row);
     });
@@ -1702,58 +1713,24 @@ function applyFilters() {
         }
     }
 
-    // Filtra transações reais
-    let realFiltered = AppState.transactions.filter(t => {
-        const matchesSearch = t.Descrição.toLowerCase().includes(searchQuery) ||
-                              t.Categoria.toLowerCase().includes(searchQuery);
-        const matchesMonth = filterMonth === 'all' || getTransactionEffectiveDate(t).startsWith(filterMonth);
-        const matchesCategory = filterCategory === 'all' || t.Categoria === filterCategory;
-        const matchesType = filterType === 'all' || t.Tipo === filterType;
-        return matchesSearch && matchesMonth && matchesCategory && matchesType;
-    });
-
-    // Projeção virtual de recorrentes ao filtrar por mês específico
-    if (filterMonth !== 'all') {
-        AppState.transactions.forEach(t => {
-            const effDate = getTransactionEffectiveDate(t);
-            const tYearMonth = effDate.substring(0, 7);
-
-            let shouldProject = false;
-            if (t.Recorrência === 'Mensal' && tYearMonth < filterMonth) {
-                shouldProject = true;
-            } else if (t.Recorrência === 'Anual' && tYearMonth < filterMonth) {
-                // Só projeta se o mês do ano bater (ex: cadastrado em jan/2025 → projeta em jan/2026)
-                const tMonth = effDate.substring(5, 7);
-                const filterMonthNum = filterMonth.substring(5, 7);
-                if (tMonth === filterMonthNum) shouldProject = true;
-            }
-
-            if (!shouldProject) return;
-
-            // Verifica se já existe uma transação real para esse mês com a mesma descrição
-            const alreadyReal = AppState.transactions.some(r =>
-                r.Data.startsWith(filterMonth) &&
-                r.Descrição === t.Descrição &&
-                r.Recorrência === t.Recorrência
-            );
-            if (alreadyReal) return;
-
-            // Aplica os demais filtros
+    // Filtra transações reais e virtuais
+    let realFiltered = [];
+    if (filterMonth === 'all') {
+        realFiltered = AppState.transactions.filter(t => {
             const matchesSearch = t.Descrição.toLowerCase().includes(searchQuery) ||
                                   t.Categoria.toLowerCase().includes(searchQuery);
             const matchesCategory = filterCategory === 'all' || t.Categoria === filterCategory;
             const matchesType = filterType === 'all' || t.Tipo === filterType;
-            if (!matchesSearch || !matchesCategory || !matchesType) return;
-
-            // Cria entrada virtual (mantendo o dia original mas trocando o mês)
-            const origDay = t.Data.substring(8, 10);
-            const virtualDate = `${filterMonth}-${origDay}`;
-            realFiltered.push({
-                ...t,
-                Id: `virtual_${t.Id}_${filterMonth}`,
-                Data: virtualDate,
-                _virtual: true
-            });
+            return matchesSearch && matchesCategory && matchesType;
+        });
+    } else {
+        const monthTransactions = getTransactionsForMonth(filterMonth);
+        realFiltered = monthTransactions.filter(t => {
+            const matchesSearch = t.Descrição.toLowerCase().includes(searchQuery) ||
+                                  t.Categoria.toLowerCase().includes(searchQuery);
+            const matchesCategory = filterCategory === 'all' || t.Categoria === filterCategory;
+            const matchesType = filterType === 'all' || t.Tipo === filterType;
+            return matchesSearch && matchesCategory && matchesType;
         });
 
         // Reordena por data decrescente
@@ -2182,12 +2159,21 @@ function calculateForecastAndRender() {
     console.log("calculateForecastAndRender -> currentYearMonth (local):", currentYearMonth);
 
     let currentTotalBalance = 0;
+    let earliestMonth = currentYearMonth;
     AppState.transactions.forEach(t => {
-        const tYearMonth = t.Data.substring(0, 7);
-        if (tYearMonth <= currentYearMonth) {
+        const m = getTransactionEffectiveDate(t).substring(0, 7);
+        if (m < earliestMonth) {
+            earliestMonth = m;
+        }
+    });
+
+    const monthsRange = getMonthsInRange(earliestMonth, currentYearMonth);
+    monthsRange.forEach(m => {
+        const monthTx = getTransactionsForMonth(m);
+        monthTx.forEach(t => {
             if (t.Tipo === 'Entrada') currentTotalBalance += t.Valor;
             else currentTotalBalance -= t.Valor;
-        }
+        });
     });
 
     const historyMonths = [];
@@ -2534,7 +2520,7 @@ function renderBalanceEvolutionChart() {
     const historicalMonths = Array.from(historicalMonthsSet).sort();
     
     historicalMonths.forEach(month => {
-        const monthTransactions = AppState.transactions.filter(t => getTransactionEffectiveDate(t).startsWith(month));
+        const monthTransactions = getTransactionsForMonth(month);
         
         let monthNet = 0;
         monthTransactions.forEach(t => {
@@ -2670,9 +2656,9 @@ function renderExpensesCategoryChart() {
     const categoriesTotals = {};
     let totalExpensesThisMonth = 0;
 
-    AppState.transactions.forEach(t => {
-        const tMonth = getTransactionEffectiveDate(t).substring(0, 7);
-        if (tMonth === currentYearMonth && t.Tipo === 'Saída') {
+    const currentMonthTx = getTransactionsForMonth(currentYearMonth);
+    currentMonthTx.forEach(t => {
+        if (t.Tipo === 'Saída') {
             categoriesTotals[t.Categoria] = (categoriesTotals[t.Categoria] || 0) + t.Valor;
             totalExpensesThisMonth += t.Valor;
         }
@@ -3163,6 +3149,78 @@ function getTransactionEffectiveDate(t) {
         }
     }
     return t.Data;
+}
+
+function getMonthsInRange(startMonth, endMonth) {
+    const months = [];
+    let [startYear, startMonthNum] = startMonth.split('-').map(Number);
+    const [endYear, endMonthNum] = endMonth.split('-').map(Number);
+    
+    let year = startYear;
+    let month = startMonthNum;
+    
+    while (year < endYear || (year === endYear && month <= endMonthNum)) {
+        months.push(`${year}-${String(month).padStart(2, '0')}`);
+        month++;
+        if (month > 12) {
+            month = 1;
+            year++;
+        }
+    }
+    return months;
+}
+
+function getTransactionsForMonth(monthStr) {
+    // 1. Filtra transações reais para o mês especificado
+    const realTransactions = AppState.transactions.filter(t => {
+        const effDate = getTransactionEffectiveDate(t);
+        return effDate.substring(0, 7) === monthStr;
+    });
+
+    // 2. Projeta transações recorrentes de meses anteriores
+    const projectedTransactions = [];
+    AppState.transactions.forEach(t => {
+        const effDate = getTransactionEffectiveDate(t);
+        const tYearMonth = effDate.substring(0, 7);
+
+        // Só projeta se a transação começou antes do mês alvo
+        if (tYearMonth >= monthStr) return;
+
+        let shouldProject = false;
+        if (t.Recorrência === 'Mensal') {
+            shouldProject = true;
+        } else if (t.Recorrência === 'Anual') {
+            const tMonthNum = effDate.substring(5, 7);
+            const targetMonthNum = monthStr.substring(5, 7);
+            if (tMonthNum === targetMonthNum) {
+                shouldProject = true;
+            }
+        }
+
+        if (!shouldProject) return;
+
+        // Evita duplicar se já houver transação real correspondente no mês alvo
+        const alreadyReal = AppState.transactions.some(r => {
+            const rEffDate = getTransactionEffectiveDate(r);
+            return rEffDate.substring(0, 7) === monthStr &&
+                   r.Descrição === t.Descrição &&
+                   r.Recorrência === t.Recorrência;
+        });
+
+        if (alreadyReal) return;
+
+        // Cria transação virtual para o mês alvo
+        const origDay = t.Data.substring(8, 10);
+        const virtualDate = `${monthStr}-${origDay}`;
+        projectedTransactions.push({
+            ...t,
+            Id: `virtual_${t.Id}_${monthStr}`,
+            Data: virtualDate,
+            _virtual: true
+        });
+    });
+
+    return [...realTransactions, ...projectedTransactions];
 }
 
 function populateTransactionModalCardsSelect(selectedCardId = null) {
